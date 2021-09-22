@@ -4,7 +4,8 @@ project(casadi_tests)
 include(FetchContent)
 FetchContent_Declare(mahi-util GIT_REPOSITORY https://github.com/mahilab/mahi-util.git)
 FetchContent_MakeAvailable(mahi-util)
-
+FetchContent_Declare(casadi GIT_REPOSITORY https://github.com/casadi/casadi.git)
+FetchContent_MakeAvailable(casadi)
 # set(IPOPT_INCLUDEDIR "C:/Users/jeff/AppData/Local/Temp/Ipopt-3.14.2-win64-msvs2019-md.zip/Ipopt-3.14.2-win64-msvs2019-md/include/coin-or")
 # set(IPOPT_LIBRARIES "C:/Users/jeff/AppData/Local/Temp/Ipopt-3.14.2-win64-msvs2019-md.zip/Ipopt-3.14.2-win64-msvs2019-md/lib" )
 # set(IPOPT_LIBRARY_DIRS "C:/Users/jeff/AppData/Local/Temp/Ipopt-3.14.2-win64-msvs2019-md.zip/Ipopt-3.14.2-win64-msvs2019-md")
@@ -25,15 +26,24 @@ FetchContent_MakeAvailable(mahi-util)
 
 include_directories(include)
 
-include_directories(C:/MatlabHelpers/Casadi/casadi-windows-matlabR2016a-v3.5.5/include)
+#include_directories(C:/Git/casadi)
 #include_directories(C:/MatlabHelpers/Casadi/casadi-windows-matlabR2016a-v3.5.5/include/casadi)
 #include_directories(C:/MatlabHelpers/Casadi/casadi-windows-matlabR2016a-v3.5.5/include/casadi/core)
 #include_directories(C:/MatlabHelpers/Casadi/casadi-windows-matlabR2016a-v3.5.5/include/casadi/core/runtime)
 
 add_executable(mainTest src/mainTest.cpp)
 #target_link_libraries(mainTest "C:/MatlabHelpers/Casadi/casadi-windows-matlabR2016a-v3.5.5/casadi")
-target_link_libraries(mainTest mahi::util)
-target_link_libraries(mainTest C:/MatlabHelpers/Casadi/casadi-windows-matlabR2016a-v3.5.5/casadi)
+target_link_libraries(mainTest mahi::util casadi)
+
+
+
+file(GLOB_RECURSE THEDLLS "C:/Git/casadi/build/Release/*.dll")
+foreach(currentDLL ${THEDLLS})
+    add_custom_command(TARGET mainTest POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                    ${currentDLL}
+                    "${PROJECT_SOURCE_DIR}/build/Release")
+endforeach(currentDLL)
 
 # target_link_libraries(mainTest casadi)
 #add_executable(test2 src/test2.cpp)
