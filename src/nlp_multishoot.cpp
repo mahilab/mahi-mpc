@@ -25,8 +25,8 @@ int main(){
     int nu = u.size1();
 
     // Bounds for control
-    vector<double> u_min = {-50, -50};
-    vector<double> u_max = {50, 50};
+    vector<double> u_min = {-inf, -inf};
+    vector<double> u_max = {inf, inf};
     // Initial Guess for control
     vector<double> u_init = {0.0, 0.0};
 
@@ -60,8 +60,11 @@ int main(){
     // create the DAE
     SXDict dae = {{"x", x}, {"p", u}, {"ode", ode}, {"quad", quad}};
     
+    double dt = tf/ns;
+    SX x_next = x + ode*dt;
+    Function F = Function("F",{x,u},{x_next},{"x","u"},{"x_next"});
     // Create an integrator (this example used cvodes, but that could change)
-    Function F = integrator("integrator", "cvodes", dae, {{"t0", 0}, {"tf", tf/ns}});
+    //Function F = integrator("integrator", "cvodes", dae, {{"t0", 0}, {"tf", tf/ns}});
     //F.disp(cout);
     // Total number of NLP variables
     int NV = nx*(ns+1) + nu*ns;
@@ -113,28 +116,30 @@ int main(){
     double desired_pos = 0.0;
     double desired_vel = 0.0;
     double current_t = 0.0;
-    double dt = tf/ns;
+    
     std::vector<double> desired_state(4,0);
     casadi::MX error = casadi::MX::sym("error",(4,1));
     casadi::MX Q = casadi::MX::eye(4);
     // Constratin function and bounds
     vector<MX> g_vec;
-
+    // vector<MX> current_state;
     // Loop over shooting nodes
     for(int k=0; k<ns; ++k){
         // Create an evaluation node
-        MXDict I_out = F(MXDict{{"x0", X[k]},{"p", U[k]}});
-
+        //MXDict I_out = F(MXDict{{"x0", X[k]},{"p", U[k]}});
+        auto funcOut =\
+        F({{"x",X[k]},{"u",U[k]}});
+        auto current_state = funcOut["x_next"];
         // Save continuity constraints
-        g_vec.push_back(I_out.at("xf") - X[k+1]);
-
+        //g_vec.push_back(I_out.at("xf") - X[k+1]);
+        g_vec.push_back(current_state-X[k+1]);
         current_t = k*dt;
         desired_pos = mahi::util::PI/2*sin(current_t);
         desired_vel = mahi::util::PI/2*cos(current_t);
         desired_state = {desired_pos,desired_pos,desired_vel,desired_vel};
         // Add objective function contribution
         //J += I_out.at("qf");
-        error = I_out.at("xf") - desired_state;
+        error = current_state - desired_state;
         //cout << "print here" << endl;
         J += mtimes(error.T(),mtimes(Q,error));//error.T()*Q*error;
     }
