@@ -43,16 +43,25 @@ target_link_libraries(nlp_codegen mahi::util casadi)
 add_executable(codegen_playground src/codegen_playground.cpp)
 target_link_libraries(codegen_playground mahi::util casadi)
 
+add_executable(nlp_multishoot src/nlp_multishoot.cpp)
+target_link_libraries(nlp_multishoot mahi::util casadi)
 
+
+# file(GLOB_RECURSE THEDLLS "C:/Git/casadi/build/Release/*.dll")
+# foreach(currentDLL ${THEDLLS})
+#     add_custom_command(TARGET mainTest POST_BUILD
+#             COMMAND ${CMAKE_COMMAND} -E copy_if_different
+#                     ${currentDLL}
+#                     "${PROJECT_SOURCE_DIR}/build/Release")
+# endforeach(currentDLL)
 
 file(GLOB_RECURSE THEDLLS "C:/Git/casadi/build/Release/*.dll")
 foreach(currentDLL ${THEDLLS})
-    add_custom_command(TARGET mainTest POST_BUILD
+    add_custom_command(TARGET nlp_multishoot POST_BUILD
             COMMAND ${CMAKE_COMMAND} -E copy_if_different
                     ${currentDLL}
                     "${PROJECT_SOURCE_DIR}/build/Release")
 endforeach(currentDLL)
-
 # target_link_libraries(mainTest casadi)
 #add_executable(test2 src/test2.cpp)
 # target_link_libraries(test2 casadi)
