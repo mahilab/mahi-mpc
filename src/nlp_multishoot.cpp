@@ -1,4 +1,5 @@
 #include <casadi/casadi.hpp>
+#include <Mahi/Util.hpp>
 
 using namespace casadi;
 using namespace std;
@@ -24,8 +25,8 @@ int main(){
     int nu = u.size1();
 
     // Bounds for control
-    vector<double> u_min = {-inf, -inf};
-    vector<double> u_max = {inf, inf};
+    vector<double> u_min = {-50, -50};
+    vector<double> u_max = {50, 50};
     // Initial Guess for control
     vector<double> u_init = {0.0, 0.0};
 
@@ -109,9 +110,16 @@ int main(){
 
     // Objective function
     MX J = 0;
-
+    double desired_pos = 0.0;
+    double desired_vel = 0.0;
+    double current_t = 0.0;
+    double dt = tf/ns;
+    std::vector<double> desired_state(4,0);
+    casadi::MX error = casadi::MX::sym("error",(4,1));
+    casadi::MX Q = casadi::MX::eye(4);
     // Constratin function and bounds
     vector<MX> g_vec;
+
     // Loop over shooting nodes
     for(int k=0; k<ns; ++k){
         // Create an evaluation node
@@ -120,8 +128,15 @@ int main(){
         // Save continuity constraints
         g_vec.push_back(I_out.at("xf") - X[k+1]);
 
+        current_t = k*dt;
+        desired_pos = mahi::util::PI/2*sin(current_t);
+        desired_vel = mahi::util::PI/2*cos(current_t);
+        desired_state = {desired_pos,desired_pos,desired_vel,desired_vel};
         // Add objective function contribution
-        J += I_out.at("qf");
+        //J += I_out.at("qf");
+        error = I_out.at("xf") - desired_state;
+        //cout << "print here" << endl;
+        J += mtimes(error.T(),mtimes(Q,error));//error.T()*Q*error;
     }
 
     // NLP
