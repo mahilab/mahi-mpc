@@ -32,8 +32,16 @@ include_directories(include)
 #include_directories(C:/MatlabHelpers/Casadi/casadi-windows-matlabR2016a-v3.5.5/include/casadi/core/runtime)
 
 add_executable(mainTest src/mainTest.cpp)
-#target_link_libraries(mainTest "C:/MatlabHelpers/Casadi/casadi-windows-matlabR2016a-v3.5.5/casadi")
 target_link_libraries(mainTest mahi::util casadi)
+
+add_executable(codegen_usage src/codegen_usage.cpp)
+target_link_libraries(codegen_usage mahi::util casadi)
+
+add_executable(nlp_codegen src/nlp_codegen.cpp)
+target_link_libraries(nlp_codegen mahi::util casadi)
+
+add_executable(codegen_playground src/codegen_playground.cpp)
+target_link_libraries(codegen_playground mahi::util casadi)
 
 
 
