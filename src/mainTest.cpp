@@ -122,57 +122,82 @@ int main() {
 
     opti.subject_to(x_opti(all,0) == x0param);
 
-    casadi::Dict mySolverOpts;
-    // mySolverOpts["verbose"] = false;
-    // mySolverOpts["expand"] = true;
-    // mySolverOpts["ipopt.print_level"] = 5;
-    // mySolverOpts["ipopt.max_iter"] = 200;
-    // mySolverOpts["error_on_fail"] = false;
-    // //mySolverOpts["print_level"] = 1;
-    // opti.solver("ipopt",mySolverOpts,casadi::Dict());//mySolverOpts)
+    
 
+    casadi::Dict mySolverOpts;
+    mySolverOpts["verbose"] = false;
     mySolverOpts["expand"] = true;
-    mySolverOpts["qpsol"] = "nlpsol";
-    mySolverOpts["qpsol_options.nlpsol"] = "ipopt";
-    mySolverOpts["qpsol_options.error_on_fail"] = false;
-    mySolverOpts["qpsol_options.nlpsol_options.ipopt.max_iter"] = 2;
-    mySolverOpts["qpsol_options.nlpsol_options.ipopt.print_level"] = 0;
-    mySolverOpts["qpsol_options.nlpsol_options.print_time"] = 0;
-    opti.solver("sqpmethod",mySolverOpts);
-    // casadi::Function M = opti.to_function("M",{x0param},{u_opti},{"x0"},{"u"});
-    // M.generate_dependencies("nlp.c");
+    mySolverOpts["ipopt.print_level"] = 0;
+    mySolverOpts["ipopt.max_iter"] = 200;
+    
+    // mySolverOpts["print_level"] = 0;
+    opti.solver("ipopt",mySolverOpts,mySolverOpts);
+    // opti.advanced().to_function()
+    mahi::util::print("before to_function line");
+    casadi::Function M = opti.to_function("M",{x0param},{u_opti},{"x0"},{"u"});
+    mahi::util::print("after to_function line");
+    // M.oracle().generate("nlp_generate_oracle.c");
+    // casadi::Function solver = casadi::nlpsol("solver", "ipopt", {{"x", opti.x()}, {"f", opti.f()}, {"g", opti.g()}});
+    // mahi::util::print("post nlpsol line");
+    // opti.solver()
+    // solver.generate_dependencies("nlp.c");
+    // M.generate_dependencies("nlp_generate_dependencies.c");
+
+
+    // M.print_options();
+    
+    // M.disp(std::cout);
+    // auto C = casadi::CodeGenerator("nlp_CodeGenerator.c");
+    // C.add(M);
+    // C.generate();
+    // mySolverOpts["expand"] = true;
+    // mySolverOpts["qpsol"] = "nlpsol";
+    // mySolverOpts["qpsol_options.nlpsol"] = "ipopt";
+    // mySolverOpts["qpsol_options.error_on_fail"] = false;
+    // mySolverOpts["qpsol_options.nlpsol_options.ipopt.max_iter"] = 2;
+    // mySolverOpts["qpsol_options.nlpsol_options.ipopt.print_level"] = 0;
+    // mySolverOpts["qpsol_options.nlpsol_options.print_time"] = 0;
+    // opti.solver("sqpmethod",mySolverOpts);
+    
+    
+    // std::cout << "running using generate\n";
+    M.generate("nlp_generate.c");
+    // std::cout << "running using generate_dependencies\n";
+    // opti.
+    // std::cout << "after generate dependencies";
+
 
     // std::cout << "Display please" << std::endl;   
 
-    mahi::util::Clock clock;
+    // mahi::util::Clock clock;
     
-    auto sol = opti.solve();
-    mahi::util::Time solveTime = clock.get_elapsed_time();
-    mahi::util::print("{}",solveTime);
+    // auto sol = opti.solve();
+    // mahi::util::Time solveTime = clock.get_elapsed_time();
+    // mahi::util::print("{}",solveTime);
 
-    std::ofstream file;
-    std::string filename = "casadi_test_results.m";
-    file.open(filename.c_str());
-    file << "% Results file from " __FILE__ << std::endl;
-    file << "% Generated " __DATE__ " at " __TIME__ << std::endl;
-    file << std::endl;
+    // std::ofstream file;
+    // std::string filename = "casadi_test_results.m";
+    // file.open(filename.c_str());
+    // file << "% Results file from " __FILE__ << std::endl;
+    // file << "% Generated " __DATE__ " at " __TIME__ << std::endl;
+    // file << std::endl;
 
-    // Save results to file
-    file << "t = linspace(0," << T << "," << N << "+1);" << std::endl;
-    file << "qA = " << std::vector<double>(sol.value(x_opti(0,all))) << ";" << std::endl;
-    file << "qB = " << std::vector<double>(sol.value(x_opti(1,all))) << ";" << std::endl; 
-    file << "qA_dot = " << std::vector<double>(sol.value(x_opti(2,all))) << ";" << std::endl;
-    file << "qB_dot = " << std::vector<double>(sol.value(x_opti(3,all))) << ";" << std::endl;
-    file << "T_A = " << std::vector<double>(sol.value(u_opti(0,all))) << ";" << std::endl;
-    file << "T_B = " << std::vector<double>(sol.value(u_opti(1,all))) << ";" << std::endl;
+    // // Save results to file
+    // file << "t = linspace(0," << T << "," << N << "+1);" << std::endl;
+    // file << "qA = " << std::vector<double>(sol.value(x_opti(0,all))) << ";" << std::endl;
+    // file << "qB = " << std::vector<double>(sol.value(x_opti(1,all))) << ";" << std::endl; 
+    // file << "qA_dot = " << std::vector<double>(sol.value(x_opti(2,all))) << ";" << std::endl;
+    // file << "qB_dot = " << std::vector<double>(sol.value(x_opti(3,all))) << ";" << std::endl;
+    // file << "T_A = " << std::vector<double>(sol.value(u_opti(0,all))) << ";" << std::endl;
+    // file << "T_B = " << std::vector<double>(sol.value(u_opti(1,all))) << ";" << std::endl;
 
-    file << "figure;" << std::endl;
-    file << "hold on;" << std::endl;
-    file << "plot(t,qA);" << std::endl;
-    file << "plot(t,qB);" << std::endl;
-    file << "xlabel('Time (s)');" <<std::endl;
-    file << "ylabel('Position (rad)');" << std::endl;
-    file << "legend('qA','qB');" << std::endl;
+    // file << "figure;" << std::endl;
+    // file << "hold on;" << std::endl;
+    // file << "plot(t,qA);" << std::endl;
+    // file << "plot(t,qB);" << std::endl;
+    // file << "xlabel('Time (s)');" <<std::endl;
+    // file << "ylabel('Position (rad)');" << std::endl;
+    // file << "legend('qA','qB');" << std::endl;
 
     
     return 0;

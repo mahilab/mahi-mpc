@@ -63,7 +63,7 @@ int main(){
 
 
     // Generate C code for the NLP functions
-    solver.generate_dependencies("nlp.c",{{"cpp",false}});
+    // solver.generate_dependencies("nlp.c",{{"cpp",false}});
 
     // Just-in-time compilation?
     bool jit = false;

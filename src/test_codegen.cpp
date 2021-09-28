@@ -30,49 +30,49 @@ int main(){
     // Initial Guess for control
     vector<double> u_init = {0.0, 0.0};
 
-    // Bounds on initial state
+    // // Bounds on initial state
     vector<double> x0_min = {0, 0, 0, 0};
     vector<double> x0_max = {0, 0, 0, 0}; // min and max are the same here
-    // Bounds on state
+    // // Bounds on state
     vector<double> x_min = {-inf, -inf, -inf, -inf};
     vector<double> x_max = {inf, inf, inf, inf};
-    // Bounds on final state - These could be interesting to adjust
+    // // Bounds on final state - These could be interesting to adjust
     vector<double> xf_min = {-inf, -inf, -inf, -inf};
     vector<double> xf_max = {inf, inf, inf, inf};
-    // Initial guess for state
+    // // Initial guess for state
     vector<double> x_init = {0, 0, 0, 0};
 
-    // Final Time
+    // // Final Time
     double tf = 1.0;
 
-    // Number of shooting nodes
+    // // Number of shooting nodes
     int ns = 20;
 
-    // ODE right hand side
-    SX qA_ddot = -(TA - TB - TB*cos(qB) + L*L*m*qA_dot*qA_dot*sin(qB) + L*L*m*qB_dot*qB_dot*sin(qB) - 2*L*g*m*cos(qA) + L*L*m*qA_dot*qA_dot*cos(qB)*sin(qB) + 2*L*L*m*qA_dot*qB_dot*sin(qB) + L*g*m*cos(qA + qB)*cos(qB))/(L*L*m*(pow(cos(qB),2) - 2));
-    SX qB_ddot = (TA - 3*TB + TA*cos(qB) - 2*TB*cos(qB) + 2*L*g*m*cos(qA + qB) + 3*L*L*m*qA_dot*qA_dot*sin(qB) + L*L*m*qB_dot*qB_dot*sin(qB) - 2*L*g*m*cos(qA) + 2*L*L*m*qA_dot*qA_dot*cos(qB)*sin(qB) + L*L*m*qB_dot*qB_dot*cos(qB)*sin(qB) - 2*L*g*m*cos(qA)*cos(qB) + 2*L*L*m*qA_dot*qB_dot*sin(qB) + L*g*m*cos(qA + qB)*cos(qB) + 2*L*L*m*qA_dot*qB_dot*cos(qB)*sin(qB))/(L*L*m*(cos(qB)*cos(qB) - 2));
+    // // ODE right hand side
+    // SX qA_ddot = -(TA - TB - TB*cos(qB) + L*L*m*qA_dot*qA_dot*sin(qB) + L*L*m*qB_dot*qB_dot*sin(qB) - 2*L*g*m*cos(qA) + L*L*m*qA_dot*qA_dot*cos(qB)*sin(qB) + 2*L*L*m*qA_dot*qB_dot*sin(qB) + L*g*m*cos(qA + qB)*cos(qB))/(L*L*m*(pow(cos(qB),2) - 2));
+    // SX qB_ddot = (TA - 3*TB + TA*cos(qB) - 2*TB*cos(qB) + 2*L*g*m*cos(qA + qB) + 3*L*L*m*qA_dot*qA_dot*sin(qB) + L*L*m*qB_dot*qB_dot*sin(qB) - 2*L*g*m*cos(qA) + 2*L*L*m*qA_dot*qA_dot*cos(qB)*sin(qB) + L*L*m*qB_dot*qB_dot*cos(qB)*sin(qB) - 2*L*g*m*cos(qA)*cos(qB) + 2*L*L*m*qA_dot*qB_dot*sin(qB) + L*g*m*cos(qA + qB)*cos(qB) + 2*L*L*m*qA_dot*qB_dot*cos(qB)*sin(qB))/(L*L*m*(cos(qB)*cos(qB) - 2));
 
-    SX ode = SX::vertcat({qA_dot,qB_dot,qA_ddot,qB_ddot});
+    // SX ode = SX::vertcat({qA_dot,qB_dot,qA_ddot,qB_ddot});
 
-    // Cost function? In the example they call this quadrature
-    SX quad = qA*qA + qB*qB + qA_dot*qA_dot + qB_dot*qB_dot; // + TA*TA + TB*TB;
+    // // Cost function? In the example they call this quadrature
+    // SX quad = qA*qA + qB*qB + qA_dot*qA_dot + qB_dot*qB_dot; // + TA*TA + TB*TB;
     
-    // create the DAE
-    SXDict dae = {{"x", x}, {"p", u}, {"ode", ode}, {"quad", quad}};
+    // // create the DAE
+    // SXDict dae = {{"x", x}, {"p", u}, {"ode", ode}, {"quad", quad}};
     
     double dt = tf/ns;
-    SX x_next = x + ode*dt;
-    Function F = Function("F",{x,u},{x_next},{"x","u"},{"x_next"});
-    // Create an integrator (this example used cvodes, but that could change)
-    //Function F = integrator("integrator", "cvodes", dae, {{"t0", 0}, {"tf", tf/ns}});
-    //F.disp(cout);
-    // Total number of NLP variables
+    // SX x_next = x + ode*dt;
+    // Function F = Function("F",{x,u},{x_next},{"x","u"},{"x_next"});
+    // // Create an integrator (this example used cvodes, but that could change)
+    // //Function F = integrator("integrator", "cvodes", dae, {{"t0", 0}, {"tf", tf/ns}});
+    // //F.disp(cout);
+    // // Total number of NLP variables
     int NV = nx*(ns+1) + nu*ns;
 
-    // declare a variable vector to use in NLP
+    // // declare a variable vector to use in NLP
     MX V = MX::sym("V",NV);
 
-    // NLP variable bounds and initial guesses
+    // // NLP variable bounds and initial guesses
     vector<double> v_min,v_max,v_init;
 
     // Offset in V --- this is like a counter variable
@@ -108,57 +108,60 @@ int main(){
     v_init.insert(v_init.end(), x_init.begin(), x_init.end());
     offset += nx;
 
-    // Make sure that the size of the variable vector is consistent with the number of variables that we have referenced
-    //casadi_assert(offset==NV, "");
+    // // Make sure that the size of the variable vector is consistent with the number of variables that we have referenced
+    // //casadi_assert(offset==NV, "");
 
-    // Objective function
-    MX J = 0;
-    double desired_pos = 0.0;
-    double desired_vel = 0.0;
-    double current_t = 0.0;
+    // // Objective function
+    // MX J = 0;
+    // double desired_pos = 0.0;
+    // double desired_vel = 0.0;
+    // double current_t = 0.0;
     
-    std::vector<double> desired_state(4,0);
-    casadi::MX error = casadi::MX::sym("error",(4,1));
-    casadi::MX Q = casadi::MX::eye(4);
-    // Constratin function and bounds
-    vector<MX> g_vec;
-    // vector<MX> current_state;
-    // Loop over shooting nodes
-    for(int k=0; k<ns; ++k){
-        // Create an evaluation node
-        //MXDict I_out = F(MXDict{{"x0", X[k]},{"p", U[k]}});
-        auto funcOut =\
-        F({{"x",X[k]},{"u",U[k]}});
-        auto current_state = funcOut["x_next"];
-        // Save continuity constraints
-        //g_vec.push_back(I_out.at("xf") - X[k+1]);
-        g_vec.push_back(current_state-X[k+1]);
-        current_t = k*dt;
-        desired_pos = mahi::util::PI/2*sin(current_t);
-        desired_vel = mahi::util::PI/2*cos(current_t);
-        desired_state = {desired_pos,desired_pos,desired_vel,desired_vel};
-        // Add objective function contribution
-        //J += I_out.at("qf");
-        error = current_state - desired_state;
-        //cout << "print here" << endl;
-        J += mtimes(error.T(),mtimes(Q,error));//error.T()*Q*error;
-    }
+    // std::vector<double> desired_state(4,0);
+    // casadi::MX error = casadi::MX::sym("error",(4,1));
+    // casadi::MX Q = casadi::MX::eye(4);
+    // // Constratin function and bounds
+    // vector<MX> g_vec;
+    // // vector<MX> current_state;
+    // // Loop over shooting nodes
+    // for(int k=0; k<ns; ++k){
+    //     // Create an evaluation node
+    //     //MXDict I_out = F(MXDict{{"x0", X[k]},{"p", U[k]}});
+    //     auto funcOut =\
+    //     F({{"x",X[k]},{"u",U[k]}});
+    //     auto current_state = funcOut["x_next"];
+    //     // Save continuity constraints
+    //     //g_vec.push_back(I_out.at("xf") - X[k+1]);
+    //     g_vec.push_back(current_state-X[k+1]);
+    //     current_t = k*dt;
+    //     desired_pos = mahi::util::PI/2*sin(current_t);
+    //     desired_vel = mahi::util::PI/2*cos(current_t);
+    //     desired_state = {desired_pos,desired_pos,desired_vel,desired_vel};
+    //     // Add objective function contribution
+    //     //J += I_out.at("qf");
+    //     error = current_state - desired_state;
+    //     //cout << "print here" << endl;
+    //     J += mtimes(error.T(),mtimes(Q,error));//error.T()*Q*error;
+    // }
 
-    // NLP
-    MX g_vec2 = MX::vertcat(g_vec);
-    MXDict nlp = {{"x", V}, {"f", J}, {"g", g_vec2}};
+    // // NLP
+    // MX g_vec2 = MX::vertcat(g_vec);
+    // MXDict nlp = {{"x", V}, {"f", J}, {"g", g_vec2}};
 
-    // Set Options
+    // // Set Options
     Dict opts;
     opts["ipopt.tol"] = 1e-5;
     opts["ipopt.max_iter"] = 200;
+    // opts["ipopt.print_level"] = 0;
     opts["ipopt.linear_solver"] = "ma57";
+    // opts["print_time"] = 0;
+    // opts["ipopt.sb"] = "yes";
 
+    // // Create an NLP solver and buffers
+    Function solver = nlpsol("nlpsol", "ipopt", "nlp_multishoot.so", opts);
+    // Function solver = nlpsol("nlpsol", "ipopt", "multishoot_library.dll", opts);
 
-    // Create an NLP solver and buffers
-    Function solver = nlpsol("nlpsol", "ipopt", nlp, opts);
-
-    solver.generate_dependencies("multishoot_c.c");
+    // solver.generate_dependencies("multishoot_c.c");
 
     map<string, DM> arg, res;
 
@@ -170,12 +173,26 @@ int main(){
     arg["x0"] = v_init;
 
     
-    
+    mahi::util::Clock my_clock;
     // Solve the problem
     res = solver(arg);
+
+    std::cout << my_clock.get_elapsed_time();
+
+    
+
     // The optimal solution
     vector<double> V_opt(res.at("x"));
     
+    arg["x0"] = V_opt;
+
+    my_clock.restart();
+
+    res = solver(arg);
+
+    std::cout << my_clock.get_elapsed_time() << endl;
+
+
     // Extract the optimal state trajectory
     vector<double> qA_opt(ns+1),qB_opt(ns+1),qA_dot_opt(ns+1),qB_dot_opt(ns+1);
 
