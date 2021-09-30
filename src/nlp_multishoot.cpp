@@ -49,11 +49,10 @@ int main(){
     int ns = 20;
 
     // ODE right hand side
-    SX qA_ddot = -(TA - TB - TB*cos(qB) + L*L*m*qA_dot*qA_dot*sin(qB) + L*L*m*qB_dot*qB_dot*sin(qB) - 2*L*g*m*cos(qA) + L*L*m*qA_dot*qA_dot*cos(qB)*sin(qB) + 2*L*L*m*qA_dot*qB_dot*sin(qB) + L*g*m*cos(qA + qB)*cos(qB))/(L*L*m*(pow(cos(qB),2) - 2));
+    SX qA_ddot = -(TA - TB - TB*cos(qB) + L*L*m*qA_dot*qA_dot*sin(qB) + L*L*m*qB_dot*qB_dot*sin(qB) - 2*L*g*m*cos(qA) + L*L*m*qA_dot*qA_dot*cos(qB)*sin(qB) + 2*L*L*m*qA_dot*qB_dot*sin(qB) + L*g*m*cos(qA + qB)*cos(qB))/(L*L*m*(cos(qB)*cos(qB) - 2));
     SX qB_ddot = (TA - 3*TB + TA*cos(qB) - 2*TB*cos(qB) + 2*L*g*m*cos(qA + qB) + 3*L*L*m*qA_dot*qA_dot*sin(qB) + L*L*m*qB_dot*qB_dot*sin(qB) - 2*L*g*m*cos(qA) + 2*L*L*m*qA_dot*qA_dot*cos(qB)*sin(qB) + L*L*m*qB_dot*qB_dot*cos(qB)*sin(qB) - 2*L*g*m*cos(qA)*cos(qB) + 2*L*L*m*qA_dot*qB_dot*sin(qB) + L*g*m*cos(qA + qB)*cos(qB) + 2*L*L*m*qA_dot*qB_dot*cos(qB)*sin(qB))/(L*L*m*(cos(qB)*cos(qB) - 2));
 
     SX ode = SX::vertcat({qA_dot,qB_dot,qA_ddot,qB_ddot});
-
     // Cost function? In the example they call this quadrature
     SX quad = qA*qA + qB*qB + qA_dot*qA_dot + qB_dot*qB_dot; // + TA*TA + TB*TB;
     
@@ -68,6 +67,8 @@ int main(){
     //F.disp(cout);
     // Total number of NLP variables
     int NV = nx*(ns+1) + nu*ns;
+
+    // std::cout << ns << " " << NV << "\n";
 
     // declare a variable vector to use in NLP
     MX V = MX::sym("V",NV);
@@ -123,6 +124,9 @@ int main(){
     // Constratin function and bounds
     vector<MX> g_vec;
     // vector<MX> current_state;
+
+    MX param = MX::sym("param");
+
     // Loop over shooting nodes
     for(int k=0; k<ns; ++k){
         // Create an evaluation node
@@ -144,16 +148,17 @@ int main(){
         J += mtimes(error.T(),mtimes(Q,error));//error.T()*Q*error;
     }
 
+    J += param;
+
     // NLP
     MX g_vec2 = MX::vertcat(g_vec);
-    MXDict nlp = {{"x", V}, {"f", J}, {"g", g_vec2}};
+    MXDict nlp = {{"x", V}, {"f", J}, {"g", g_vec2}, {"p", param}};
 
     // Set Options
     Dict opts;
     opts["ipopt.tol"] = 1e-5;
     opts["ipopt.max_iter"] = 200;
-    opts["ipopt.linear_solver"] = "ma57";
-
+    opts["ipopt.linear_solver"] = "ma27";
 
     // Create an NLP solver and buffers
     Function solver = nlpsol("nlpsol", "ipopt", nlp, opts);
@@ -168,7 +173,7 @@ int main(){
     arg["lbg"] = 0;
     arg["ubg"] = 0;
     arg["x0"] = v_init;
-
+    arg["p"] = {7};
     
     
     // Solve the problem

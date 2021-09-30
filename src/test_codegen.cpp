@@ -4,6 +4,8 @@
 using namespace casadi;
 using namespace std;
 
+using mahi::util::PI;
+
 int main(){
     double L = 1.0;
     double m = 1.0;
@@ -152,18 +154,32 @@ int main(){
     Dict opts;
     opts["ipopt.tol"] = 1e-5;
     opts["ipopt.max_iter"] = 200;
+    opts["ipopt.linear_solver"] = "ma27";
     // opts["ipopt.print_level"] = 0;
-    opts["ipopt.linear_solver"] = "ma57";
     // opts["print_time"] = 0;
     // opts["ipopt.sb"] = "yes";
 
     // // Create an NLP solver and buffers
-    Function solver = nlpsol("nlpsol", "ipopt", "nlp_multishoot.so", opts);
+    Function solver = nlpsol("nlpsol", "ipopt", "double_pendulum.so", opts);
     // Function solver = nlpsol("nlpsol", "ipopt", "multishoot_library.dll", opts);
 
     // solver.generate_dependencies("multishoot_c.c");
 
     map<string, DM> arg, res;
+
+    mahi::util::Time time_step  = mahi::util::milliseconds(20);
+    double time = 0.0;
+
+    std::vector<double> traj;
+    for (size_t i = 0; i < ns; i++)
+    {
+        traj.push_back(sin(2*PI*time));
+        traj.push_back(-sin(2*PI*time));
+        traj.push_back(2*PI*cos(2*PI*time));
+        traj.push_back(-2*PI*cos(2*PI*time));
+        time += time_step.as_seconds();
+    }
+    
 
     // Bounds and initial guess
     arg["lbx"] = v_min;
@@ -171,7 +187,7 @@ int main(){
     arg["lbg"] = 0;
     arg["ubg"] = 0;
     arg["x0"] = v_init;
-
+    arg["p"]  = traj;
     
     mahi::util::Clock my_clock;
     // Solve the problem
@@ -211,14 +227,14 @@ int main(){
     }
 
     ofstream file;
-    string filename = "my_multishoot_results.m";
+    string filename = "new_multishoot_results.m";
     file.open(filename.c_str());
     file << "% Results from " __FILE__ << endl;
     file << "% Generated " __DATE__ " at " __TIME__ << endl;
     file << endl;
 
     // Save results
-    file << "t = linspace(0,10," << ns << "+1);" << endl;
+    file << "t = linspace(0,1.0," << ns << "+1);" << endl;
     file << "qA = " << qA_opt << ";" << endl;
     file << "qB = " << qB_opt << ";" << endl;
     file << "qA_dot = " << qA_dot_opt << ";" << endl;

@@ -66,3 +66,29 @@ foreach(currentDLL ${THEDLLS})
 endforeach(currentDLL)
 
 # add_library(multishoot_library SHARED "build/Release/multishoot_c.c")
+
+
+set(MAHI_CASADI_SRC
+        src/Mahi/Casadi/ModelGenerator.cpp
+        include/Mahi/Casadi/ModelGenerator.hpp)
+
+# add_library(mahi-casadi ${MAHI_CASADI_SRC})
+# target_include_directories(mahi-casadi PUBLIC include)
+
+# file(GLOB_RECURSE MAHI_CASADI_HEADERS "include/*.hpp" "include/*.h" "include/*.inl")
+# target_sources(mahi-casadi PRIVATE ${MAHI_CASADI_HEADERS}) # for intellisense
+# target_include_directories(mahi-casadi
+#         PUBLIC
+#                 $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+#                 $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+#         PRIVATE
+#                 ${CMAKE_CURRENT_SOURCE_DIR}/src
+# )
+
+# target_link_libraries(mahi-casadi casadi mahi-util)
+
+add_executable(model_generator_test src/model_generate_example.cpp ${MAHI_CASADI_SRC})
+target_link_libraries(model_generator_test casadi mahi::util)
+
+# add_executable(model_control_test src/model_control_example.cpp ${MAHI_CASADI_SRC})
+# target_link_libraries(model_control_test casadi mahi::util)
