@@ -1,3 +1,7 @@
+#include <Mahi/Casadi/M.hpp>
+#include <Mahi/Casadi/G.hpp>
+#include <Mahi/Casadi/V.hpp>
+#include <casadi/casadi.hpp>
 #include <Mahi/Casadi/ModelGenerator.hpp>
 
 using namespace casadi;
@@ -5,49 +9,69 @@ using mahi::util::PI;
 
 int main(int argc, char const *argv[])
 {
-    double L = 1.0;
-    double m = 1.0;
-    double g = 9.81;
+    const int num_x = 8;
+    const int num_u = 4;
 
-    SX qA = SX::sym("qA");
-    SX qB = SX::sym("qB");
-    SX qA_dot = SX::sym("qA_dot");
-    SX qB_dot = SX::sym("qB_dot");
-    SX TA = SX::sym("TA");
-    SX TB = SX::sym("TB");
-
-    // ODE right hand side
-    SX qA_ddot = -(TA - TB - TB*cos(qB) + L*L*m*qA_dot*qA_dot*sin(qB) + L*L*m*qB_dot*qB_dot*sin(qB) - 2*L*g*m*cos(qA) + L*L*m*qA_dot*qA_dot*cos(qB)*sin(qB) + 2*L*L*m*qA_dot*qB_dot*sin(qB) + L*g*m*cos(qA + qB)*cos(qB))/(L*L*m*(cos(qB)*cos(qB) - 2));
-    SX qB_ddot = (TA - 3*TB + TA*cos(qB) - 2*TB*cos(qB) + 2*L*g*m*cos(qA + qB) + 3*L*L*m*qA_dot*qA_dot*sin(qB) + L*L*m*qB_dot*qB_dot*sin(qB) - 2*L*g*m*cos(qA) + 2*L*L*m*qA_dot*qA_dot*cos(qB)*sin(qB) + L*L*m*qB_dot*qB_dot*cos(qB)*sin(qB) - 2*L*g*m*cos(qA)*cos(qB) + 2*L*L*m*qA_dot*qB_dot*sin(qB) + L*g*m*cos(qA + qB)*cos(qB) + 2*L*L*m*qA_dot*qB_dot*cos(qB)*sin(qB))/(L*L*m*(cos(qB)*cos(qB) - 2));
+    SX q0 = SX::sym("q0");
+    SX q1 = SX::sym("q1");
+    SX q2 = SX::sym("q2");
+    SX q3 = SX::sym("q3");
+    SX q0_dot = SX::sym("q0_dot");
+    SX q1_dot = SX::sym("q1_dot");
+    SX q2_dot = SX::sym("q2_dot");
+    SX q3_dot = SX::sym("q3_dot");
+    
+    SX T0 = SX::sym("T0");
+    SX T1 = SX::sym("T1");
+    SX T2 = SX::sym("T2");
+    SX T3 = SX::sym("T3");
 
     // state vector
-    SX x = SX::vertcat({qA,qB,qA_dot,qB_dot});
+    SX x = SX::vertcat({q0,q1,q2,q3,q0_dot,q1_dot,q2_dot,q3_dot});
+    SX u = SX::vertcat({T0,T1,T2,T3});
 
-    SX x_dot = SX::vertcat({qA_dot,qB_dot,qA_ddot,qB_ddot});
+    SX q_dot = SX::vertcat({q0_dot,q1_dot,q2_dot,q3_dot});
+
+    // std::cout << x(0) << std::endl;
+    // std::cout << x(0,0) << std::endl;
+
+    auto V = get_V(x);
+    auto G = get_G(x);
+    auto B = u - mtimes(V,q_dot) - G;// - B - Fk;
+    auto A = get_M(x);
+    SX q_d_dot = solve(A,B);
+    SX x_dot = vertcat(q_dot,q_d_dot);
+
+    // std::cout << G;
+    // std::cout << A;
+    // std::cout << G;
+
+    // SX x_dot = SX::vertcat({qA_dot,qB_dot,qA_ddot,qB_ddot});
     
     // control vector
-    SX u = SX::vertcat({TA,TB});
     // auto A = jacobian(x_dot,x);
     // auto B = jacobian(x_dot,u);
     // x_dot = mtimes(A,x) + mtimes(B,u);
     // std::cout << A << std::endl << B << std::endl << x_dot << std::endl;
 
     // Bounds on state
-    std::vector<double> x_min = {-inf, -inf, -inf, -inf};
-    std::vector<double> x_max = {inf, inf, inf, inf};
+    std::vector<double> x_min(num_x,-inf);
+    std::vector<double> x_max(num_x, inf);
 
     // Bounds for control
-    std::vector<double> u_min = {-inf, -inf};
-    std::vector<double> u_max = {inf, inf};
+    // std::vector<double> u_min(num_u,-inf);
+    // std::vector<double> u_max(num_u, inf);
+    std::vector<double> u_min(num_u,-5);
+    std::vector<double> u_max(num_u, 5);
 
     mahi::util::Time final_time = mahi::util::seconds(0.3);
     mahi::util::Time time_step  = mahi::util::milliseconds(10);
 
-    ModelGenerator my_generator("double_pendulum", x, x_dot, u, final_time, time_step, u_min, u_max, x_min, x_max);
+    ModelGenerator my_generator("moe_model", x, x_dot, u, final_time, time_step, u_min, u_max, x_min, x_max);
 
     my_generator.create_model();
-    my_generator.generate_c_code("double_pendulum.c");
-    // my_generator.compile_model("double_pendulum.so");
+    my_generator.generate_c_code("moe_model.c");
+    // my_generator.compile_model("moe_model.so");
 
     // std::vector<double> traj;
     // for (size_t i = 0; i < ns; i++)
@@ -71,12 +95,12 @@ int main(int argc, char const *argv[])
     mahi::util::print("{} shooting nodes over {} seconds with {} states, and {} control variables", ns, final_time, nx, nu);
 
     // Bounds on initial state
-    std::vector<double> x0_min = {0, 0, 0, 0};
-    std::vector<double> x0_max = {0, 0, 0, 0}; // min and max are the same here
-    std::vector<double> x_init = {0, 0, 0, 0};
-    std::vector<double> u_init = {0.0, 0.0};
-    std::vector<double> xf_min = {-inf, -inf, -inf, -inf};
-    std::vector<double> xf_max = {inf, inf, inf, inf};
+    std::vector<double> x0_min(num_x,0);
+    std::vector<double> x0_max(num_x,0); // min and max are the same here
+    std::vector<double> x_init(num_x,0);
+    std::vector<double> u_init(num_u,0);
+    std::vector<double> xf_min(num_x,-inf);
+    std::vector<double> xf_max(num_x, inf);
 
 
     //declare vectors for the state and control at each node
@@ -114,8 +138,7 @@ int main(int argc, char const *argv[])
     opts["print_time"] = 0;
     opts["ipopt.sb"] = "yes";
 
-    Function solver = nlpsol("nlpsol", "ipopt", "double_pendulum.so", opts);
-    // Function solver = nlpsol("nlpsol", "ipopt", "double_pendulum.dll", opts);
+    Function solver = nlpsol("nlpsol", "ipopt", "moe_model.so", opts);
 
     std::map<std::string, casadi::DM> arg, res;
     arg["lbx"] = v_min;
@@ -133,8 +156,8 @@ int main(int argc, char const *argv[])
     auto sim_time = mahi::util::seconds(5);
     double curr_sim_time = 0;
     
-    std::vector<double> qA_opt,qB_opt,qA_dot_opt,qB_dot_opt;
-    std::vector<double> TA_opt, TB_opt;
+    std::vector<double> q0_opt,q1_opt,q2_opt,q3_opt,q0_dot_opt,q1_dot_opt,q2_dot_opt,q3_dot_opt;
+    std::vector<double> T0_opt, T1_opt, T2_opt, T3_opt;
 
     double dt = time_step.as_seconds();
 
@@ -152,6 +175,10 @@ int main(int argc, char const *argv[])
         {
             traj.push_back(sin(2*PI*curr_traj_time));
             traj.push_back(-sin(2*PI*curr_traj_time));
+            traj.push_back(sin(2*PI*curr_traj_time));
+            traj.push_back(-sin(2*PI*curr_traj_time));
+            traj.push_back(2*PI*cos(2*PI*curr_traj_time));
+            traj.push_back(-2*PI*cos(2*PI*curr_traj_time));
             traj.push_back(2*PI*cos(2*PI*curr_traj_time));
             traj.push_back(-2*PI*cos(2*PI*curr_traj_time));
             curr_traj_time += time_step.as_seconds();
@@ -175,16 +202,18 @@ int main(int argc, char const *argv[])
         std::vector<double> u_curr(V_opt.begin()+(nx),V_opt.begin()+ (nx+nu));
         
         // begin euler
-        auto x_next = F_euler(casadi::SXDict({{"x",x_curr},{"u",u_curr}}));
-        std::vector<double> x_next_vec(x_next.at("x_next_euler"));
-        // // end euler
+        // auto x_next = F_euler(casadi::SXDict({{"x",x_curr},{"u",u_curr}}));
+        // std::vector<double> x_next_vec(x_next.at("x_next_euler"));
+        // std::copy(x_next_vec.begin(),x_next_vec.end(),v_min.begin());
+        // std::copy(x_next_vec.begin(),x_next_vec.end(),v_max.begin());
+        // end euler
 
         // begin rk4
-        // auto k1 = x_dot_fun(casadi::SXDict({{"x",x_curr},{"u",u_curr}}));
-        // auto k2 = x_dot_fun(casadi::SXDict({{"x",x_curr+dt/2*k1.at("x_dot")},{"u",u_curr}}));
-        // auto k3 = x_dot_fun(casadi::SXDict({{"x",x_curr+dt/2*k2.at("x_dot")},{"u",u_curr}}));
-        // auto k4 = x_dot_fun(casadi::SXDict({{"x",x_curr+dt*k3.at("x_dot")},{"u",u_curr}}));
-        // std::vector<double> x_next_vec(x_curr + dt/6*(k1.at("x_dot")+2*k2.at("x_dot")+2*k3.at("x_dot")+k4.at("x_dot")));
+        auto k1 = x_dot_fun(casadi::SXDict({{"x",x_curr},{"u",u_curr}}));
+        auto k2 = x_dot_fun(casadi::SXDict({{"x",x_curr+dt/2*k1.at("x_dot")},{"u",u_curr}}));
+        auto k3 = x_dot_fun(casadi::SXDict({{"x",x_curr+dt/2*k2.at("x_dot")},{"u",u_curr}}));
+        auto k4 = x_dot_fun(casadi::SXDict({{"x",x_curr+dt*k3.at("x_dot")},{"u",u_curr}}));
+        std::vector<double> x_next_vec(x_curr + dt/6*(k1.at("x_dot")+2*k2.at("x_dot")+2*k3.at("x_dot")+k4.at("x_dot")));
         // end rk4
 
         std::copy(x_next_vec.begin(),x_next_vec.end(),v_min.begin());
@@ -193,13 +222,19 @@ int main(int argc, char const *argv[])
         arg["lbx"] = v_min;
         arg["ubx"] = v_max;
         
-        qA_opt.push_back(x_curr[0]);
-        qB_opt.push_back(x_curr[1]);
-        qA_dot_opt.push_back(x_curr[2]);
-        qB_dot_opt.push_back(x_curr[3]);
+        q0_opt.push_back(x_curr[0]);
+        q1_opt.push_back(x_curr[1]);
+        q2_opt.push_back(x_curr[2]);
+        q3_opt.push_back(x_curr[3]);
+        q0_dot_opt.push_back(x_curr[4]);
+        q1_dot_opt.push_back(x_curr[5]);
+        q2_dot_opt.push_back(x_curr[6]);
+        q3_dot_opt.push_back(x_curr[7]);
 
-        TA_opt.push_back(u_curr[0]);
-        TB_opt.push_back(u_curr[1]);
+        T0_opt.push_back(u_curr[0]);
+        T1_opt.push_back(u_curr[1]);
+        T2_opt.push_back(u_curr[2]);
+        T3_opt.push_back(u_curr[3]);
 
         curr_sim_time += time_step.as_seconds();
     }
@@ -211,12 +246,9 @@ int main(int argc, char const *argv[])
     
     // arg["x0"] = V_opt;
 
-
     // Extract the optimal state trajectory
-
-
     std::ofstream file;
-    std::string filename = "new_multishoot_results.m";
+    std::string filename = "moe_multishoot_results.m";
     file.open(filename.c_str());
     file << "% Results from " __FILE__ << std::endl;
     file << "% Generated " __DATE__ " at " __TIME__ << std::endl;
@@ -224,20 +256,28 @@ int main(int argc, char const *argv[])
 
     // Save results
     file << "t = linspace(0," << sim_time.as_seconds() << "," << (sim_time/time_step + 1) << ");" << std::endl;
-    file << "qA = " << qA_opt << ";" << std::endl;
-    file << "qB = " << qB_opt << ";" << std::endl;
-    file << "qA_dot = " << qA_dot_opt << ";" << std::endl;
-    file << "qB_dot = " << qB_dot_opt << ";" << std::endl;
-    file << "TA = " << TA_opt << ";" << std::endl;
-    file << "TB = " << TB_opt << ";" << std::endl;
+    file << "q0 = " << q0_opt << ";" << std::endl;
+    file << "q1 = " << q1_opt << ";" << std::endl;
+    file << "q2 = " << q2_opt << ";" << std::endl;
+    file << "q3 = " << q3_opt << ";" << std::endl;
+    file << "q0_dot = " << q0_dot_opt << ";" << std::endl;
+    file << "q1_dot = " << q1_dot_opt << ";" << std::endl;
+    file << "q2_dot = " << q2_dot_opt << ";" << std::endl;
+    file << "q3_dot = " << q3_dot_opt << ";" << std::endl;
+    file << "T0 = " << T0_opt << ";" << std::endl;
+    file << "T1 = " << T1_opt << ";" << std::endl;
+    file << "T2 = " << T2_opt << ";" << std::endl;
+    file << "T3 = " << T3_opt << ";" << std::endl;
 
     file << "figure;" << std::endl;
     file << "hold on;" << std::endl;
-    file << "plot(t,qA);" << std::endl;
-    file << "plot(t,qB);" << std::endl;
+    file << "plot(t,q0);" << std::endl;
+    file << "plot(t,q1);" << std::endl;
+    file << "plot(t,q2);" << std::endl;
+    file << "plot(t,q3);" << std::endl;
     file << "xlabel('Time (s)');" << std::endl;
     file << "ylabel('Position (rad)');" << std::endl;
-    file << "legend('qA','qB');" << std::endl; 
+    file << "legend('q0','q1','q2','q3');" << std::endl; 
     std::cout << "finished" << std::endl;
 
     return 0;

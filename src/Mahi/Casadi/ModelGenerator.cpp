@@ -28,9 +28,17 @@ ModelGenerator::~ModelGenerator(){
 
 void ModelGenerator::create_model(){
     mahi::util::print("generating model with {} shooting nodes over {} seconds with {} states, and {} control variables", m_num_shooting_nodes, m_timespan.as_seconds(), m_num_x, m_num_u);
-    
+
+    // linearization
+    // auto A = jacobian(x_dot,x);
+    // auto B = jacobian(x_dot,u);
+    // auto x_dot_lin = mtimes(A,x) + mtimes(B,u);
+    //end linearization
+
     casadi::SX x_next = m_x + m_x_dot*m_step_size.as_seconds();
     casadi::Function F = casadi::Function("F",{m_x,m_u},{x_next},{"x","u"},{"x_next"});
+
+    // casadi::Function F_lin = casadi::Function
 
     int NV = m_num_x*(m_num_shooting_nodes+1) + m_num_u*m_num_shooting_nodes;
 
@@ -48,6 +56,8 @@ void ModelGenerator::create_model(){
 
     // NLP variable bounds and initial guesses
     std::vector<double> v_min,v_max,v_init;
+
+    // std::cout << "here1\n";
 
     // Offset in V --- this is like a counter variable
     int offset=0;
@@ -75,7 +85,7 @@ void ModelGenerator::create_model(){
         offset += m_num_u;
     }
 
-
+    // std::cout << "here2\n";
 
     // State at end
     X.push_back(V.nz(casadi::Slice(offset,offset+static_cast<int>(m_num_x))));
