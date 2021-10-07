@@ -7,8 +7,19 @@
 using namespace casadi;
 using mahi::util::PI;
 
-int main(int argc, char const *argv[])
+int main(int argc, char *argv[])
 {
+    mahi::util::Options options("options.exe", "Simple Program Demonstrating Options");
+
+    options.add_options()
+        ("d,dll", "Generate new dll.")
+        ("m,ma27", "Runs using MA27 solver. Mumps otherwise")
+        ("l,linear", "Generates linearized model.");
+
+    auto result = options.parse(argc, argv);
+
+    bool linear = result.count("linear") > 0;
+
     const int num_x = 8;
     const int num_u = 4;
 
@@ -41,12 +52,6 @@ int main(int argc, char const *argv[])
     auto A = get_M(x);
     SX q_d_dot = solve(A,B);
     SX x_dot = vertcat(q_dot,q_d_dot);
-
-    // std::cout << G;
-    // std::cout << A;
-    // std::cout << G;
-
-    // SX x_dot = SX::vertcat({qA_dot,qB_dot,qA_ddot,qB_ddot});
     
     // control vector
     // auto A = jacobian(x_dot,x);
@@ -59,30 +64,18 @@ int main(int argc, char const *argv[])
     std::vector<double> x_max(num_x, inf);
 
     // Bounds for control
-    // std::vector<double> u_min(num_u,-inf);
-    // std::vector<double> u_max(num_u, inf);
-    std::vector<double> u_min(num_u,-5);
-    std::vector<double> u_max(num_u, 5);
+    std::vector<double> u_min(num_u,-inf);
+    std::vector<double> u_max(num_u, inf);
 
-    mahi::util::Time final_time = mahi::util::seconds(0.3);
-    mahi::util::Time time_step  = mahi::util::milliseconds(10);
+    mahi::util::Time final_time = mahi::util::milliseconds(50);
+    mahi::util::Time time_step  = mahi::util::milliseconds(2);
 
-    ModelGenerator my_generator("moe_model", x, x_dot, u, final_time, time_step, u_min, u_max, x_min, x_max);
+    ModelGenerator my_generator("moe_model", x, x_dot, u, final_time, time_step, u_min, u_max, x_min, x_max, linear);
 
     my_generator.create_model();
     my_generator.generate_c_code("moe_model.c");
-    // my_generator.compile_model("moe_model.so");
+    if (result.count("dll")) my_generator.compile_model("moe_model.so");
 
-    // std::vector<double> traj;
-    // for (size_t i = 0; i < ns; i++)
-    // {
-    //     traj.push_back(sin(2*PI*time));
-    //     traj.push_back(-sin(2*PI*time));
-    //     traj.push_back(2*PI*cos(2*PI*time));
-    //     traj.push_back(-2*PI*cos(2*PI*time));
-    //     time += time_step.as_seconds();
-    // }
-        // NLP variable bounds and initial guesses
     std::vector<double> v_min,v_max,v_init;
 
     // Offset in V --- this is like a counter variable
@@ -104,10 +97,7 @@ int main(int argc, char const *argv[])
 
 
     //declare vectors for the state and control at each node
-    // std::vector<casadi::MX> X, U;
     for(int k=0; k<ns; ++k){
-        // Local state
-        // X.push_back( V.nz(casadi::Slice(offset,offset+nx)));
         if(k==0){
             v_min.insert(v_min.end(), x0_min.begin(), x0_min.end());
             v_max.insert(v_max.end(), x0_max.begin(), x0_max.end());
@@ -118,7 +108,6 @@ int main(int argc, char const *argv[])
         v_init.insert(v_init.end(), x_init.begin(), x_init.end());
 
         // Local Control
-        // U.push_back(V.nz(casadi::Slice(offset,offset+nu)));
         v_min.insert(v_min.end(), u_min.begin(), u_min.end());
         v_max.insert(v_max.end(), u_max.begin(), u_max.end());
         v_init.insert(v_init.end(), u_init.begin(), u_init.end());
@@ -131,14 +120,20 @@ int main(int argc, char const *argv[])
     // Bounds and initial guess
     casadi::Dict opts;
 
+    std::string linear_solver = result.count("m") ? "ma27" : "mumps";
+
     opts["ipopt.tol"] = 1e-5;
     opts["ipopt.max_iter"] = 200;
-    opts["ipopt.linear_solver"] = "ma27";
+    opts["ipopt.linear_solver"] = linear_solver;
     opts["ipopt.print_level"] = 0;
     opts["print_time"] = 0;
     opts["ipopt.sb"] = "yes";
 
-    Function solver = nlpsol("nlpsol", "ipopt", "moe_model.so", opts);
+    mahi::util::print("Using solver: {}",linear_solver);
+
+    std::string dll = (linear ? "linear_" : "nonlinear_") + std::string("moe_model.so");
+
+    Function solver = nlpsol("nlpsol", "ipopt", dll, opts);
 
     std::map<std::string, casadi::DM> arg, res;
     arg["lbx"] = v_min;
@@ -146,7 +141,6 @@ int main(int argc, char const *argv[])
     arg["lbg"] = 0;
     arg["ubg"] = 0;
     arg["x0"] = v_init;
-    // arg["p"]  = traj;
     
     casadi::SX x_next_euler = x + x_dot*time_step.as_seconds();
     casadi::Function F_euler = casadi::Function("F",{x,u},{x_next_euler},{"x","u"},{"x_next_euler"});
@@ -248,7 +242,7 @@ int main(int argc, char const *argv[])
 
     // Extract the optimal state trajectory
     std::ofstream file;
-    std::string filename = "moe_multishoot_results.m";
+    std::string filename = (linear ? "" : "non") + std::string("linear_moe_mpc_results.m");
     file.open(filename.c_str());
     file << "% Results from " __FILE__ << std::endl;
     file << "% Generated " __DATE__ " at " __TIME__ << std::endl;

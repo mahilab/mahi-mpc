@@ -20,12 +20,13 @@ private:
     std::vector<double> m_u_max; // maximum of control inputs
     std::string m_dll_filepath;
     std::string m_c_file_filepath;
+    bool m_linear;
 
     casadi::Function m_solver;
     
 public:
     
-    ModelGenerator(std::string name, casadi::SX x, casadi::SX x_dot, casadi::SX u, mahi::util::Time final_time, mahi::util::Time step_size, std::vector<double> u_min, std::vector<double> u_max, std::vector<double> x_min, std::vector<double> x_max);
+    ModelGenerator(std::string name, casadi::SX x, casadi::SX x_dot, casadi::SX u, mahi::util::Time final_time, mahi::util::Time step_size, std::vector<double> u_min, std::vector<double> u_max, std::vector<double> x_min, std::vector<double> x_max, bool linear = false);
     ~ModelGenerator();
     void create_model();
     void generate_c_code(std::string filepath);

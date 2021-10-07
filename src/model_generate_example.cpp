@@ -1,10 +1,23 @@
 #include <Mahi/Casadi/ModelGenerator.hpp>
+#include <Mahi/Util.hpp>
 
 using namespace casadi;
 using mahi::util::PI;
 
-int main(int argc, char const *argv[])
+int main(int argc, char* argv[])
 {
+    mahi::util::Options options("options.exe", "Simple Program Demonstrating Options");
+
+    options.add_options()
+        ("d,dll", "Generate new dll.")
+        ("s,s2", "use second timestep.")
+        ("m,ma27", "Runs using MA27 solver. Mumps otherwise")
+        ("l,linear", "Generates linearized model.");
+    
+    auto result = options.parse(argc, argv);
+
+    bool linear = result.count("linear") > 0;
+
     double L = 1.0;
     double m = 1.0;
     double g = 9.81;
@@ -40,14 +53,16 @@ int main(int argc, char const *argv[])
     std::vector<double> u_min = {-inf, -inf};
     std::vector<double> u_max = {inf, inf};
 
-    mahi::util::Time final_time = mahi::util::seconds(0.3);
-    mahi::util::Time time_step  = mahi::util::milliseconds(10);
+    mahi::util::Time time_step  = mahi::util::milliseconds(2);
+    mahi::util::Time final_time = mahi::util::milliseconds(50);
 
-    ModelGenerator my_generator("double_pendulum", x, x_dot, u, final_time, time_step, u_min, u_max, x_min, x_max);
+    ModelGenerator my_generator("double_pendulum", x, x_dot, u, final_time, time_step, u_min, u_max, x_min, x_max, linear);
 
     my_generator.create_model();
     my_generator.generate_c_code("double_pendulum.c");
-    // my_generator.compile_model("double_pendulum.so");
+    // return 0;
+    // std::cout << "not generating code\n";
+    if (result.count("dll")) my_generator.compile_model("double_pendulum.so");
 
     // std::vector<double> traj;
     // for (size_t i = 0; i < ns; i++)
@@ -77,7 +92,6 @@ int main(int argc, char const *argv[])
     std::vector<double> u_init = {0.0, 0.0};
     std::vector<double> xf_min = {-inf, -inf, -inf, -inf};
     std::vector<double> xf_max = {inf, inf, inf, inf};
-
 
     //declare vectors for the state and control at each node
     // std::vector<casadi::MX> X, U;
@@ -109,13 +123,13 @@ int main(int argc, char const *argv[])
 
     opts["ipopt.tol"] = 1e-5;
     opts["ipopt.max_iter"] = 200;
-    opts["ipopt.linear_solver"] = "ma27";
+    opts["ipopt.linear_solver"] = result.count("m") ? "ma27" : "mumps";
     opts["ipopt.print_level"] = 0;
     opts["print_time"] = 0;
     opts["ipopt.sb"] = "yes";
 
-    Function solver = nlpsol("nlpsol", "ipopt", "double_pendulum.so", opts);
-    // Function solver = nlpsol("nlpsol", "ipopt", "double_pendulum.dll", opts);
+    std::string dll = (linear ? "linear_" : "nonlinear_") + std::string("double_pendulum.so");
+    Function solver = nlpsol("nlpsol", "ipopt", dll, opts);
 
     std::map<std::string, casadi::DM> arg, res;
     arg["lbx"] = v_min;
@@ -123,14 +137,13 @@ int main(int argc, char const *argv[])
     arg["lbg"] = 0;
     arg["ubg"] = 0;
     arg["x0"] = v_init;
-    // arg["p"]  = traj;
     
     casadi::SX x_next_euler = x + x_dot*time_step.as_seconds();
     casadi::Function F_euler = casadi::Function("F",{x,u},{x_next_euler},{"x","u"},{"x_next_euler"});
 
     casadi::Function x_dot_fun("x_dot_ode",{x,u},{x_dot},{"x","u"},{"x_dot"});
     
-    auto sim_time = mahi::util::seconds(5);
+    auto sim_time = mahi::util::seconds(0.2);
     double curr_sim_time = 0;
     
     std::vector<double> qA_opt,qB_opt,qA_dot_opt,qB_dot_opt;
@@ -141,10 +154,8 @@ int main(int argc, char const *argv[])
     double avg_solve_time = 0;
     mahi::util::Clock sim_clock;
 
-    // mahi::util::enable_realtime();
-
     while (curr_sim_time < sim_time.as_seconds()){
-        // std::cout << "running iteration " << iter++ << std::endl;
+        
         // update trajectory with new desired
         std::vector<double> traj;
         double curr_traj_time = curr_sim_time;
@@ -162,7 +173,6 @@ int main(int argc, char const *argv[])
         
         res = solver(arg);
         auto solve_time = my_clock.get_elapsed_time().as_milliseconds();
-        // std::cout << solve_time << std::endl;
 
         static int iterations = 0;
         avg_solve_time = (avg_solve_time*iterations+(double)solve_time)/(iterations+1);
@@ -171,20 +181,20 @@ int main(int argc, char const *argv[])
         std::vector<double> V_opt(res.at("x"));
         arg["x0"] = V_opt;
         
-        std::vector<double> x_curr(V_opt.begin(),V_opt.begin()+nx);
-        std::vector<double> u_curr(V_opt.begin()+(nx),V_opt.begin()+ (nx+nu));
+        std::vector<double> x_curr(V_opt.begin(),V_opt.begin()+nx); // first 4 indices
+        std::vector<double> u_curr(V_opt.begin()+(nx),V_opt.begin()+ (nx + nu)); // 5-6 indices
         
         // begin euler
-        auto x_next = F_euler(casadi::SXDict({{"x",x_curr},{"u",u_curr}}));
-        std::vector<double> x_next_vec(x_next.at("x_next_euler"));
+        // auto x_next = F_euler(casadi::SXDict({{"x",x_curr},{"u",u_curr}}));
+        // std::vector<double> x_next_vec(x_next.at("x_next_euler"));
         // // end euler
 
         // begin rk4
-        // auto k1 = x_dot_fun(casadi::SXDict({{"x",x_curr},{"u",u_curr}}));
-        // auto k2 = x_dot_fun(casadi::SXDict({{"x",x_curr+dt/2*k1.at("x_dot")},{"u",u_curr}}));
-        // auto k3 = x_dot_fun(casadi::SXDict({{"x",x_curr+dt/2*k2.at("x_dot")},{"u",u_curr}}));
-        // auto k4 = x_dot_fun(casadi::SXDict({{"x",x_curr+dt*k3.at("x_dot")},{"u",u_curr}}));
-        // std::vector<double> x_next_vec(x_curr + dt/6*(k1.at("x_dot")+2*k2.at("x_dot")+2*k3.at("x_dot")+k4.at("x_dot")));
+        auto k1 = x_dot_fun(casadi::SXDict({{"x",x_curr},{"u",u_curr}}));
+        auto k2 = x_dot_fun(casadi::SXDict({{"x",x_curr+dt/2*k1.at("x_dot")},{"u",u_curr}}));
+        auto k3 = x_dot_fun(casadi::SXDict({{"x",x_curr+dt/2*k2.at("x_dot")},{"u",u_curr}}));
+        auto k4 = x_dot_fun(casadi::SXDict({{"x",x_curr+dt*k3.at("x_dot")},{"u",u_curr}}));
+        std::vector<double> x_next_vec(x_curr + dt/6*(k1.at("x_dot")+2*k2.at("x_dot")+2*k3.at("x_dot")+k4.at("x_dot")));
         // end rk4
 
         std::copy(x_next_vec.begin(),x_next_vec.end(),v_min.begin());
@@ -203,27 +213,20 @@ int main(int argc, char const *argv[])
 
         curr_sim_time += time_step.as_seconds();
     }
-    // std::cout << "sim time: " << sim_clock.get_elapsed_time() << std::endl;
     mahi::util::print("sim time: {:.2f} s, avg solve time: {:.2f} ms",sim_clock.get_elapsed_time().as_seconds(),avg_solve_time);
-    // vector<double> V_opt(res.at("x"));
 
     mahi::util::disable_realtime();
-    
-    // arg["x0"] = V_opt;
-
 
     // Extract the optimal state trajectory
-
-
     std::ofstream file;
-    std::string filename = "new_multishoot_results.m";
+    std::string filename = (linear ? "" : "non") + std::string("linear_double_pendulum_mpc_results.m");
     file.open(filename.c_str());
     file << "% Results from " __FILE__ << std::endl;
     file << "% Generated " __DATE__ " at " __TIME__ << std::endl;
     file << std::endl;
 
     // Save results
-    file << "t = linspace(0," << sim_time.as_seconds() << "," << (sim_time/time_step + 1) << ");" << std::endl;
+    file << "t = linspace(0," << sim_time.as_seconds() << "," << (sim_time/time_step) << ");" << std::endl;
     file << "qA = " << qA_opt << ";" << std::endl;
     file << "qB = " << qB_opt << ";" << std::endl;
     file << "qA_dot = " << qA_dot_opt << ";" << std::endl;
