@@ -43,21 +43,18 @@ int main(int argc, char *argv[])
 
     SX q_dot = SX::vertcat({q0_dot,q1_dot,q2_dot,q3_dot});
 
-    // std::cout << x(0) << std::endl;
-    // std::cout << x(0,0) << std::endl;
-
     auto V = get_V(x);
     auto G = get_G(x);
-    auto B = u - mtimes(V,q_dot) - G;// - B - Fk;
-    auto A = get_M(x);
-    SX q_d_dot = solve(A,B);
+    auto B_eom = u - mtimes(V,q_dot) - G;// - B - Fk;
+    auto A_eom = get_M(x);
+    SX q_d_dot = solve(A_eom,B_eom);
     SX x_dot = vertcat(q_dot,q_d_dot);
-    
-    // control vector
-    // auto A = jacobian(x_dot,x);
-    // auto B = jacobian(x_dot,u);
-    // x_dot = mtimes(A,x) + mtimes(B,u);
-    // std::cout << A << std::endl << B << std::endl << x_dot << std::endl;
+
+    auto A = jacobian(x_dot,x);
+    auto B = jacobian(x_dot,u);
+    casadi::Function get_A = casadi::Function("get_A",{x,u},{A},{"x","u"},{"A"});
+    casadi::Function get_B = casadi::Function("get_B",{x,u},{B},{"x","u"},{"B"});
+    casadi::Function get_x_dot_init = casadi::Function("F_get_x_dot_init",{x,u},{x_dot},{"x","u"},{"x_dot_init"});
 
     // Bounds on state
     std::vector<double> x_min(num_x,-inf);
@@ -67,8 +64,8 @@ int main(int argc, char *argv[])
     std::vector<double> u_min(num_u,-inf);
     std::vector<double> u_max(num_u, inf);
 
-    mahi::util::Time final_time = mahi::util::milliseconds(50);
-    mahi::util::Time time_step  = mahi::util::milliseconds(2);
+    mahi::util::Time final_time = mahi::util::milliseconds(100);
+    mahi::util::Time time_step  = mahi::util::milliseconds(5);
 
     ModelGenerator my_generator("moe_model", x, x_dot, u, final_time, time_step, u_min, u_max, x_min, x_max, linear);
 
@@ -147,7 +144,7 @@ int main(int argc, char *argv[])
 
     casadi::Function x_dot_fun("x_dot_ode",{x,u},{x_dot},{"x","u"},{"x_dot"});
     
-    auto sim_time = mahi::util::seconds(5);
+    auto sim_time = mahi::util::seconds(1);
     double curr_sim_time = 0;
     
     std::vector<double> q0_opt,q1_opt,q2_opt,q3_opt,q0_dot_opt,q1_dot_opt,q2_dot_opt,q3_dot_opt;
@@ -158,7 +155,8 @@ int main(int argc, char *argv[])
     double avg_solve_time = 0;
     mahi::util::Clock sim_clock;
 
-    // mahi::util::enable_realtime();
+    std::vector<double> x_next_vec(8,0);
+    std::vector<double> u_curr(4,0);
 
     while (curr_sim_time < sim_time.as_seconds()){
         // std::cout << "running iteration " << iter++ << std::endl;
@@ -177,6 +175,20 @@ int main(int argc, char *argv[])
             traj.push_back(-2*PI*cos(2*PI*curr_traj_time));
             curr_traj_time += time_step.as_seconds();
         }
+
+        if (linear){
+            // get and add flattened A, B, x_dot_init, x_init 
+            std::vector<double> A_res(get_A(SXDict({{"x",x_next_vec},{"u",u_curr}})).at("A"));
+            std::vector<double> B_res(get_B(SXDict({{"x",x_next_vec},{"u",u_curr}})).at("B"));
+            std::vector<double> x_dot_init_res(get_x_dot_init(SXDict({{"x",x_next_vec},{"u",u_curr}})).at("x_dot_init"));
+
+            for (const auto &a_ : A_res) traj.push_back(a_);
+            for (const auto &b_ : B_res) traj.push_back(b_);
+            for (const auto &x_dot_init_ : x_dot_init_res) traj.push_back(x_dot_init_);
+            for (const auto &x_next_ : x_next_vec) traj.push_back(x_next_);
+            for (const auto &u_ : u_curr) traj.push_back(u_);
+        }
+
         arg["p"]  = traj;
         
         mahi::util::Clock my_clock;
@@ -193,7 +205,7 @@ int main(int argc, char *argv[])
         arg["x0"] = V_opt;
         
         std::vector<double> x_curr(V_opt.begin(),V_opt.begin()+nx);
-        std::vector<double> u_curr(V_opt.begin()+(nx),V_opt.begin()+ (nx+nu));
+        u_curr = std::vector<double>(V_opt.begin()+(nx),V_opt.begin()+ (nx+nu));
         
         // begin euler
         // auto x_next = F_euler(casadi::SXDict({{"x",x_curr},{"u",u_curr}}));
@@ -207,7 +219,7 @@ int main(int argc, char *argv[])
         auto k2 = x_dot_fun(casadi::SXDict({{"x",x_curr+dt/2*k1.at("x_dot")},{"u",u_curr}}));
         auto k3 = x_dot_fun(casadi::SXDict({{"x",x_curr+dt/2*k2.at("x_dot")},{"u",u_curr}}));
         auto k4 = x_dot_fun(casadi::SXDict({{"x",x_curr+dt*k3.at("x_dot")},{"u",u_curr}}));
-        std::vector<double> x_next_vec(x_curr + dt/6*(k1.at("x_dot")+2*k2.at("x_dot")+2*k3.at("x_dot")+k4.at("x_dot")));
+        x_next_vec = std::vector<double>(x_curr + dt/6*(k1.at("x_dot")+2*k2.at("x_dot")+2*k3.at("x_dot")+k4.at("x_dot")));
         // end rk4
 
         std::copy(x_next_vec.begin(),x_next_vec.end(),v_min.begin());
@@ -249,7 +261,7 @@ int main(int argc, char *argv[])
     file << std::endl;
 
     // Save results
-    file << "t = linspace(0," << sim_time.as_seconds() << "," << (sim_time/time_step + 1) << ");" << std::endl;
+    file << "t = linspace(0," << sim_time.as_seconds() << "," << (sim_time/time_step) << ");" << std::endl;
     file << "q0 = " << q0_opt << ";" << std::endl;
     file << "q1 = " << q1_opt << ";" << std::endl;
     file << "q2 = " << q2_opt << ";" << std::endl;

@@ -33,17 +33,18 @@ int main(int argc, char* argv[])
     SX qA_ddot = -(TA - TB - TB*cos(qB) + L*L*m*qA_dot*qA_dot*sin(qB) + L*L*m*qB_dot*qB_dot*sin(qB) - 2*L*g*m*cos(qA) + L*L*m*qA_dot*qA_dot*cos(qB)*sin(qB) + 2*L*L*m*qA_dot*qB_dot*sin(qB) + L*g*m*cos(qA + qB)*cos(qB))/(L*L*m*(cos(qB)*cos(qB) - 2));
     SX qB_ddot = (TA - 3*TB + TA*cos(qB) - 2*TB*cos(qB) + 2*L*g*m*cos(qA + qB) + 3*L*L*m*qA_dot*qA_dot*sin(qB) + L*L*m*qB_dot*qB_dot*sin(qB) - 2*L*g*m*cos(qA) + 2*L*L*m*qA_dot*qA_dot*cos(qB)*sin(qB) + L*L*m*qB_dot*qB_dot*cos(qB)*sin(qB) - 2*L*g*m*cos(qA)*cos(qB) + 2*L*L*m*qA_dot*qB_dot*sin(qB) + L*g*m*cos(qA + qB)*cos(qB) + 2*L*L*m*qA_dot*qB_dot*cos(qB)*sin(qB))/(L*L*m*(cos(qB)*cos(qB) - 2));
 
-    // state vector
     SX x = SX::vertcat({qA,qB,qA_dot,qB_dot});
-
     SX x_dot = SX::vertcat({qA_dot,qB_dot,qA_ddot,qB_ddot});
     
     // control vector
     SX u = SX::vertcat({TA,TB});
-    // auto A = jacobian(x_dot,x);
-    // auto B = jacobian(x_dot,u);
-    // x_dot = mtimes(A,x) + mtimes(B,u);
-    // std::cout << A << std::endl << B << std::endl << x_dot << std::endl;
+    
+    auto A = jacobian(x_dot,x);
+    auto B = jacobian(x_dot,u);
+    casadi::Function get_A = casadi::Function("get_A",{x,u},{A},{"x","u"},{"A"});
+    casadi::Function get_B = casadi::Function("get_B",{x,u},{B},{"x","u"},{"B"});
+    casadi::Function get_x_dot_init = casadi::Function("F_get_x_dot_init",{x,u},{x_dot},{"x","u"},{"x_dot_init"});
+    
 
     // Bounds on state
     std::vector<double> x_min = {-inf, -inf, -inf, -inf};
@@ -53,27 +54,18 @@ int main(int argc, char* argv[])
     std::vector<double> u_min = {-inf, -inf};
     std::vector<double> u_max = {inf, inf};
 
+    // settings for multiple shooting constructions
     mahi::util::Time time_step  = mahi::util::milliseconds(2);
     mahi::util::Time final_time = mahi::util::milliseconds(50);
 
+    // 
     ModelGenerator my_generator("double_pendulum", x, x_dot, u, final_time, time_step, u_min, u_max, x_min, x_max, linear);
 
     my_generator.create_model();
     my_generator.generate_c_code("double_pendulum.c");
-    // return 0;
-    // std::cout << "not generating code\n";
     if (result.count("dll")) my_generator.compile_model("double_pendulum.so");
 
-    // std::vector<double> traj;
-    // for (size_t i = 0; i < ns; i++)
-    // {
-    //     traj.push_back(sin(2*PI*time));
-    //     traj.push_back(-sin(2*PI*time));
-    //     traj.push_back(2*PI*cos(2*PI*time));
-    //     traj.push_back(-2*PI*cos(2*PI*time));
-    //     time += time_step.as_seconds();
-    // }
-        // NLP variable bounds and initial guesses
+    // NLP variable bounds and initial guesses
     std::vector<double> v_min,v_max,v_init;
 
     // Offset in V --- this is like a counter variable
@@ -94,7 +86,6 @@ int main(int argc, char* argv[])
     std::vector<double> xf_max = {inf, inf, inf, inf};
 
     //declare vectors for the state and control at each node
-    // std::vector<casadi::MX> X, U;
     for(int k=0; k<ns; ++k){
         // Local state
         // X.push_back( V.nz(casadi::Slice(offset,offset+nx)));
@@ -154,6 +145,10 @@ int main(int argc, char* argv[])
     double avg_solve_time = 0;
     mahi::util::Clock sim_clock;
 
+    std::vector<double> x_next_vec = {0,0,0,0};
+    std::vector<double> u_curr = {0,0};
+
+
     while (curr_sim_time < sim_time.as_seconds()){
         
         // update trajectory with new desired
@@ -167,10 +162,23 @@ int main(int argc, char* argv[])
             traj.push_back(-2*PI*cos(2*PI*curr_traj_time));
             curr_traj_time += time_step.as_seconds();
         }
+
+        if (linear){
+            // get and add flattened A, B, x_dot_init, x_init 
+            std::vector<double> A_res(get_A(SXDict({{"x",x_next_vec},{"u",u_curr}})).at("A"));
+            std::vector<double> B_res(get_B(SXDict({{"x",x_next_vec},{"u",u_curr}})).at("B"));
+            std::vector<double> x_dot_init_res(get_x_dot_init(SXDict({{"x",x_next_vec},{"u",u_curr}})).at("x_dot_init"));
+
+            for (const auto &a_ : A_res) traj.push_back(a_);
+            for (const auto &b_ : B_res) traj.push_back(b_);
+            for (const auto &x_dot_init_ : x_dot_init_res) traj.push_back(x_dot_init_);
+            for (const auto &x_next_ : x_next_vec) traj.push_back(x_next_);
+            for (const auto &u_ : u_curr) traj.push_back(u_);
+        }
+        
         arg["p"]  = traj;
         
         mahi::util::Clock my_clock;
-        
         res = solver(arg);
         auto solve_time = my_clock.get_elapsed_time().as_milliseconds();
 
@@ -181,20 +189,15 @@ int main(int argc, char* argv[])
         std::vector<double> V_opt(res.at("x"));
         arg["x0"] = V_opt;
         
-        std::vector<double> x_curr(V_opt.begin(),V_opt.begin()+nx); // first 4 indices
-        std::vector<double> u_curr(V_opt.begin()+(nx),V_opt.begin()+ (nx + nu)); // 5-6 indices
-        
-        // begin euler
-        // auto x_next = F_euler(casadi::SXDict({{"x",x_curr},{"u",u_curr}}));
-        // std::vector<double> x_next_vec(x_next.at("x_next_euler"));
-        // // end euler
+        std::vector<double> x_curr = std::vector<double>(V_opt.begin(),V_opt.begin()+nx); // first 4 indices
+        u_curr = std::vector<double>(V_opt.begin()+(nx),V_opt.begin()+ (nx + nu)); // 5-6 indices
 
         // begin rk4
         auto k1 = x_dot_fun(casadi::SXDict({{"x",x_curr},{"u",u_curr}}));
         auto k2 = x_dot_fun(casadi::SXDict({{"x",x_curr+dt/2*k1.at("x_dot")},{"u",u_curr}}));
         auto k3 = x_dot_fun(casadi::SXDict({{"x",x_curr+dt/2*k2.at("x_dot")},{"u",u_curr}}));
         auto k4 = x_dot_fun(casadi::SXDict({{"x",x_curr+dt*k3.at("x_dot")},{"u",u_curr}}));
-        std::vector<double> x_next_vec(x_curr + dt/6*(k1.at("x_dot")+2*k2.at("x_dot")+2*k3.at("x_dot")+k4.at("x_dot")));
+        x_next_vec = std::vector<double>(x_curr + dt/6*(k1.at("x_dot")+2*k2.at("x_dot")+2*k3.at("x_dot")+k4.at("x_dot")));
         // end rk4
 
         std::copy(x_next_vec.begin(),x_next_vec.end(),v_min.begin());

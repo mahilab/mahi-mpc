@@ -35,33 +35,40 @@ void ModelGenerator::create_model(){
     casadi::SX x_next = m_x + m_x_dot*m_step_size.as_seconds();
     casadi::Function F = casadi::Function("F",{m_x,m_u},{x_next},{"x","u"},{"x_next"});
 
-    // linearization
-    auto A = jacobian(m_x_dot,m_x);
-    auto B = jacobian(m_x_dot,m_u);
-    casadi::Function get_A = casadi::Function("get_A",{m_x,m_u},{A},{"x","u"},{"A"});
-    casadi::Function get_B = casadi::Function("get_B",{m_x,m_u},{B},{"x","u"},{"B"});
-    casadi::Function get_x_dot_init = casadi::Function("F_get_x_dot_init",{m_x,m_u},{m_x_dot},{"x","u"},{"x_dot_init"});
-    // linear functions
+    // I made all of these symbolic so that I could pass them in as arguments, but not sure that is helpful.
+    // I think these could be consolidated and cleaned up. Not sure how much benefit that would provide
     casadi::SX A_sym = casadi::SX::sym("A_sym",m_num_x,m_num_x);
     casadi::SX B_sym = casadi::SX::sym("B_sym",m_num_x,m_num_u);
     casadi::SX x_init_sym = casadi::SX::sym("x_init_sym",m_num_x);
     casadi::SX u_init_sym = casadi::SX::sym("u_init_sym",m_num_u);
     casadi::SX x_dot_init_sym = casadi::SX::sym("x_dot_init_sym",m_num_x);
-    auto x_dot_lin = mtimes(A_sym,(m_x-x_init_sym)) + mtimes(B_sym,(m_u-u_init_sym)) + x_dot_init_sym;
     
+    // linear functions
+    casadi::SX A = jacobian(m_x_dot,m_x);
+    casadi::SX B = jacobian(m_x_dot,m_u);
+    casadi::SX x_dot_lin = mtimes(A_sym,(m_x-x_init_sym)) + mtimes(B_sym,(m_u-u_init_sym)) + x_dot_init_sym;
     casadi::SX x_next_lin = m_x + x_dot_lin*m_step_size.as_seconds();
+    
+    // actual functions these first three get called only once with initial conditions, then used in F_lin later
+    casadi::Function get_A = casadi::Function("get_A",{m_x,m_u},{A},{"x","u"},{"A"});
+    casadi::Function get_B = casadi::Function("get_B",{m_x,m_u},{B},{"x","u"},{"B"});
+    casadi::Function get_x_dot_init = casadi::Function("F_get_x_dot_init",{m_x,m_u},{m_x_dot},{"x","u"},{"x_dot_init"});
 
+    // this is the regular update, and only x and u are the current timestep. I think could be consolidated
     casadi::Function F_lin = casadi::Function("F_lin",{A_sym,B_sym,m_x,m_u,x_dot_init_sym,x_init_sym,u_init_sym},{x_next_lin},{"A","B","x","u","x_dot_init","x_init","u_init"},{"x_next_lin"});
 
-
+    // total number of variables (number of states * (time steps+1)  +  number of control inputs * time steps )
     int NV = m_num_x*(m_num_shooting_nodes+1) + m_num_u*m_num_shooting_nodes;
 
+    // initial guess for u and x. We are guessing that all states as well as control inputs start at 0
     std::vector<double> u_init(m_num_u,0.0);
     std::vector<double> x_init(m_num_x,0.0);
 
+    // inital condition for state. This is essentially saying that we start at state of 0 for both position and velocity.
     std::vector<double> x0_min(m_num_x,0.0);
     std::vector<double> x0_max(m_num_x,0.0);
 
+    // we don't set a found on final condition
     std::vector<double> xf_min(m_num_x,-casadi::inf);
     std::vector<double> xf_max(m_num_x,casadi::inf);
 
@@ -106,26 +113,51 @@ void ModelGenerator::create_model(){
 
     // Objective function
     casadi::MX J = 0;
-    double desired_pos = 0.0;
-    double desired_vel = 0.0;
     double current_t = 0.0;
     
-    // casadi::MX desired_state(m_num_x,0);
     casadi::MX error = casadi::MX::sym("error",(m_num_x,1));
     casadi::MX Q = casadi::MX::eye(m_num_x);
 
     // Constratin function and bounds
     std::vector<casadi::MX> g_vec;
 
-    casadi::MX traj = casadi::MX::sym("traj",m_num_shooting_nodes*m_num_x);
+    int traj_size = m_num_shooting_nodes*m_num_x;
 
-    // get A and B based on the current values of 
-    auto lin_A = get_A({{"x",X[0]},{"u",U[0]}}).at("A");
-    auto lin_B = get_B({{"x",X[0]},{"u",U[0]}}).at("B");
-    auto x_dot_init = get_x_dot_init({{"x",X[0]},{"u",U[0]}}).at("x_dot_init");
-    // auto lin_A = lin_A_res["A"];
-    // auto lin_B = lin_B_res["B"];
-    // auto x_dot_init = x_dot_init_res["x_dot_init"];
+    if (m_linear){
+        traj_size += m_num_x*m_num_x // A
+                   + m_num_x*m_num_u // B
+                   + m_num_x         // x_dot_init
+                   + m_num_x         // x_init
+                   + m_num_u;        // u_init
+    }
+
+    // create a vector of symbolic variables that we will import. This is of size (num_time_steps * num_states)
+    // fir the nonlinear case, and for the linear case, A, B, x_dot_init, x_init, and u_init are also passed
+    casadi::MX traj = casadi::MX::sym("traj", traj_size); // traj_size
+
+    casadi::MX lin_A;
+    casadi::MX lin_B;
+    casadi::MX x_dot_init;
+    casadi::MX x_init_in;
+    casadi::MX u_init_in;
+
+    // if it is linear, we need to get the extra variables that were passed as parameters and rshape them
+    // to the proper size to use
+    if (m_linear){
+        int start_A          = (int)(m_num_shooting_nodes*m_num_x);
+        int start_B          = start_A + m_num_x*m_num_x;
+        int start_x_dot_init = start_B + m_num_x*m_num_u;
+        int start_x_init     = start_x_dot_init + m_num_x;
+        int start_u_init     = start_x_init + m_num_x;
+        int end_u_init       = start_u_init + m_num_u;
+
+        lin_A      = reshape(traj(casadi::Slice(start_A,start_B)),m_num_x,m_num_x);
+        lin_B      = reshape(traj(casadi::Slice(start_B,start_x_dot_init)),m_num_x,m_num_u);
+        x_dot_init = reshape(traj(casadi::Slice(start_x_dot_init,start_x_init)),m_num_x,1);
+        x_init_in  = reshape(traj(casadi::Slice(start_x_init,start_u_init)),m_num_x,1);
+        u_init_in  = reshape(traj(casadi::Slice(start_u_init,end_u_init)),m_num_u,1);
+    }
+
 
     // Loop over shooting nodes
     for(int k=0; k<m_num_shooting_nodes; ++k){
@@ -133,7 +165,7 @@ void ModelGenerator::create_model(){
         casadi::MX current_state;
         if (m_linear){
             auto funcOut =\
-            F_lin({{"A",lin_A},{"B",lin_B},{"x",X[k]},{"u",U[k]},{"x_dot_init",x_dot_init},{"x_init",X[0]},{"u_init",U[0]}});
+            F_lin({{"A",lin_A},{"B",lin_B},{"x",X[k]},{"u",U[k]},{"x_dot_init",x_dot_init},{"x_init",x_init_in},{"u_init",u_init_in}}); // make these inputs instead of variables
             current_state = funcOut["x_next_lin"];
         }
         else{
@@ -143,11 +175,10 @@ void ModelGenerator::create_model(){
         }
         
         // Save continuity constraints
-        //g_vec.push_back(I_out.at("xf") - X[k+1]);
         g_vec.push_back(current_state-X[k+1]);
         auto desired_state = traj.nz(casadi::Slice(k*static_cast<int>(m_num_x),(k+1)*static_cast<int>(m_num_x)));
+        
         // Add objective function contribution
-        //J += I_out.at("qf");
         error = current_state - desired_state;
         J += mtimes(error.T(),mtimes(Q,error));//error.T()*Q*error;
     }

@@ -20,6 +20,14 @@ sim_time = 0:h:0.25;
 x0 = [0;0;0;0];
 
 %%
+x_test = [ 0;0; 0; 0];
+u_test = [0; 0];
+
+a_test = vpa(subs(A,[x;u],[x_test;u_test]),6)
+b_test = vpa(subs(B,[x;u],[x_test;u_test]),6)
+x_dot_test = vpa(subs(x_dot,[x;u],[x_test;u_test]),6)
+
+%%
 x_test = [ 0.012566;-0.012566; 6.286450; -6.286450];
 % x_test = [0.00628315;-0.00628309;6.28305;-6.28278];
 x_init_test = [0.00628315;-0.00628309;6.28305;-6.28278];
