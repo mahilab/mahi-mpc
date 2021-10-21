@@ -59,11 +59,11 @@ int main(int argc, char* argv[])
     mahi::util::Time final_time = mahi::util::milliseconds(50);
 
     // 
-    ModelGenerator my_generator("double_pendulum", x, x_dot, u, final_time, time_step, u_min, u_max, x_min, x_max, linear);
+    // ModelGenerator my_generator("old_double_pendulum", x, x_dot, u, final_time, time_step, u_min, u_max, x_min, x_max, linear);
 
-    my_generator.create_model();
-    my_generator.generate_c_code("double_pendulum.c");
-    if (result.count("dll")) my_generator.compile_model("double_pendulum.so");
+    // my_generator.create_model();
+    // my_generator.generate_c_code();
+    // if (result.count("dll")) my_generator.compile_model();
 
     // NLP variable bounds and initial guesses
     std::vector<double> v_min,v_max,v_init;
@@ -108,6 +108,10 @@ int main(int argc, char* argv[])
     v_min.insert(v_min.end(), xf_min.begin(), xf_min.end());
     v_max.insert(v_max.end(), xf_max.begin(), xf_max.end());
     v_init.insert(v_init.end(), x_init.begin(), x_init.end());
+
+    std::cout << "v_min: " << v_min.size() << std::endl;
+    std::cout << "v_max: " << v_max.size() << std::endl;
+    std::cout << "v_init: " << v_init.size() << std::endl;
 
     // Bounds and initial guess
     casadi::Dict opts;
@@ -174,6 +178,14 @@ int main(int argc, char* argv[])
             for (const auto &x_dot_init_ : x_dot_init_res) traj.push_back(x_dot_init_);
             for (const auto &x_next_ : x_next_vec) traj.push_back(x_next_);
             for (const auto &u_ : u_curr) traj.push_back(u_);
+
+            static bool first_time = true;
+            if (first_time){
+                std::cout << A_res << std::endl;
+                std::cout << B_res << std::endl;
+                std::cout << x_dot_init_res << std::endl;
+            }
+            first_time = false;
         }
         
         arg["p"]  = traj;

@@ -1,5 +1,30 @@
+# MIT License
+#
+# Copyright (c) 2021 Mechatronics and Haptic Interfaces Lab - Rice University
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+#
+# Author(s): Nathan Dunkelberger (nbd2@rice.edu)
+
 cmake_minimum_required(VERSION 3.13)
-project(casadi_tests)
+project(mahi_mpc VERSION 0.1.0 LANGUAGES CXX)
+
+# Options
+if (CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
+option(MAHI_MPC_EXAMPLES "Turn ON to build example executable(s)" ON)
+else()
+option(MAHI_MPC_EXAMPLES "Turn ON to build example executable(s)" OFF)
+endif()
+
+include(GNUInstallDirs)
 
 set(CMAKE_CXX_FLAGS "-openmp")
 
@@ -8,10 +33,7 @@ set(IPOPT_LIBRARIES "${IPOPT_BASE_FILEPATH}/lib/ipopt.dll.lib")
 set(IPOPT_INCLUDE_DIRS "${IPOPT_BASE_FILEPATH}/include/coin-or")
 set(Ipopt_DIR "${IPOPT_BASE_FILEPATH}/bin")
 set(WITH_IPOPT ON CACHE BOOL "IPOPT will be used" FORCE)
-# set(WITH_CLANG OFF CACHE BOOL "CLANG will be used" FORCE)
 set(WITH_OPENMP ON CACHE BOOL "OpenMP will be used" FORCE)
-#option(WITH_OPENMP "Compile with parallelization support" OFF)
-
 
 include(FetchContent)
 FetchContent_Declare(mahi-util GIT_REPOSITORY https://github.com/mahilab/mahi-util.git)
@@ -19,71 +41,34 @@ FetchContent_MakeAvailable(mahi-util)
 FetchContent_Declare(casadi GIT_REPOSITORY https://github.com/casadi/casadi.git)
 FetchContent_MakeAvailable(casadi)
 
-
 if (MSVC)
         add_compile_options(/openmp)
 endif()
 
+set(MAHI_MPC_SRC
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/Mahi/Casadi/ModelGenerator.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/Mahi/Casadi/ModelParameters.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/Mahi/Casadi/ModelControl.cpp)
 
-include_directories(include)
+file(GLOB_RECURSE MAHI_MPC_HEADERS "include/*.hpp")
 
-add_executable(mainTest src/mainTest.cpp)
-target_link_libraries(mainTest mahi::util casadi)
+add_library(mpc ${CMAKE_CURRENT_SOURCE_DIR}/src/Mahi/Casadi/ModelGenerator.cpp)
+add_library(mahi::mpc ALIAS mpc)
+set_target_properties(mpc PROPERTIES DEBUG_POSTFIX -d)
+target_compile_features(mpc PUBLIC cxx_std_11)
+set_target_properties(mpc PROPERTIES OUTPUT_NAME mpc)
 
-add_executable(codegen_usage src/codegen_usage.cpp)
-target_link_libraries(codegen_usage mahi::util casadi)
+install(TARGETS mpc EXPORT mpc-targets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 
-# add_executable(nlp_codegen src/nlp_codegen.cpp)
-# target_link_libraries(nlp_codegen mahi::util casadi)
+target_sources(mpc PRIVATE ${MAHI_MPC_SRC} ${MAHI_MPC_HEADERS}) # for intellisense
+target_include_directories(mpc
+        PUBLIC
+                $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+                $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+        PRIVATE
+                ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
 
-add_executable(codegen_playground src/codegen_playground.cpp)
-target_link_libraries(codegen_playground mahi::util casadi)
+target_link_libraries(mpc casadi mahi::util)
 
-add_executable(nlp_multishoot src/nlp_multishoot.cpp)
-target_link_libraries(nlp_multishoot mahi::util casadi)
-
-add_executable(test_codegen src/test_codegen.cpp)
-target_link_libraries(test_codegen mahi::util casadi)
-
-# file(GLOB_RECURSE THEDLLS "C:/Git/casadi - clang/build/*.dll")
-# foreach(currentDLL ${THEDLLS})
-#     add_custom_command(TARGET nlp_multishoot POST_BUILD
-#             COMMAND ${CMAKE_COMMAND} -E copy_if_different
-#                     ${currentDLL}
-#                     "${PROJECT_SOURCE_DIR}/build/Release")
-# endforeach(currentDLL)
-# file(GLOB_RECURSE THEDLLS "${PROJECT_SOURCE_DIR}/build/deps/casadi-build/Release/*.dll")
-# foreach(currentDLL ${THEDLLS})
-#     add_custom_command(TARGET nlp_multishoot POST_BUILD
-#             COMMAND ${CMAKE_COMMAND} -E copy_if_different
-#                     ${currentDLL}
-#                     "${PROJECT_SOURCE_DIR}/build/Release")
-# endforeach(currentDLL)
-
-set(MAHI_CASADI_SRC
-        src/Mahi/Casadi/ModelGenerator.cpp
-        include/Mahi/Casadi/ModelGenerator.hpp)
-
-# add_library(mahi-casadi ${MAHI_CASADI_SRC})
-# target_include_directories(mahi-casadi PUBLIC include)
-
-# file(GLOB_RECURSE MAHI_CASADI_HEADERS "include/*.hpp" "include/*.h" "include/*.inl")
-# target_sources(mahi-casadi PRIVATE ${MAHI_CASADI_HEADERS}) # for intellisense
-# target_include_directories(mahi-casadi
-#         PUBLIC
-#                 $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
-#                 $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-#         PRIVATE
-#                 ${CMAKE_CURRENT_SOURCE_DIR}/src
-# )
-
-# target_link_libraries(mahi-casadi casadi mahi-util)
-
-add_executable(model_generator_test src/model_generate_example.cpp ${MAHI_CASADI_SRC})
-target_link_libraries(model_generator_test casadi mahi::util)
-
-add_executable(moe_model_generator_test src/moe_model_generate_example.cpp ${MAHI_CASADI_SRC})
-target_link_libraries(moe_model_generator_test casadi mahi::util)
-
-# add_executable(model_control_test src/model_control_example.cpp ${MAHI_CASADI_SRC})
-# target_link_libraries(model_control_test casadi mahi::util)
+add_subdirectory(examples)
