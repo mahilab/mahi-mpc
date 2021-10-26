@@ -36,6 +36,7 @@ int main(int argc, char* argv[])
         sin_freq = 0.25;
     }
 
+
     const int nx = model_control.model_parameters.num_x;
 
     mahi::util::Time sim_time = mahi::util::seconds(1.0);
@@ -50,12 +51,30 @@ int main(int argc, char* argv[])
     std::vector<std::vector<double>> u_result;
     double avg_solve_time = 0;
     int cycle_counter = 0;
-    mahi::util::Clock sim_clock;
+    
+    // warm start
+    double curr_traj_time = 0;
+    for (auto i = 0; i < model_control.model_parameters.num_shooting_nodes; i++){
+        for (auto j = 0; j < model_control.model_parameters.num_x; j++){
+            // if it is one of the position states
+            if (j < nx/2) traj.push_back( ((j % 2 == 0) ? 1.0 : -1.0) * sin_amp * sin(2*PI*sin_freq*curr_traj_time));
+            // if it is one of the velocity states
+            else          traj.push_back( (((j-nx/2) % 2 == 0) ? 1.0 : -1.0) * sin_amp * 2*PI*sin_freq*cos(2*PI*sin_freq*curr_traj_time));
+        }
+        curr_traj_time += model_control.model_parameters.step_size.as_seconds();
+    }
+
+    model_control.set_state(mahi::util::seconds(0), state, control, traj);
+    model_control.start_calc();
+    mahi::util::sleep(mahi::util::milliseconds(100));
+    // end warm start
+    mahi::util::Time sim_rate = mahi::util::microseconds(1000);
+    mahi::util::Timer sim_clock(sim_rate);
     while (curr_sim_time < sim_time.as_seconds()){
-        // std::cout <<cycle_counter;
+        std::cout <<cycle_counter << "\n";
         // update trajectory with new desired
         mahi::util::Clock my_clock;
-        double curr_traj_time = curr_sim_time;
+        curr_traj_time = curr_sim_time;
         traj.clear();
         for (auto i = 0; i < model_control.model_parameters.num_shooting_nodes; i++){
             for (auto j = 0; j < model_control.model_parameters.num_x; j++){
@@ -66,37 +85,37 @@ int main(int argc, char* argv[])
             }
             curr_traj_time += model_control.model_parameters.step_size.as_seconds();
         }
-
+    
         time_result.push_back(curr_sim_time);
         x_result.push_back(state);
         u_result.push_back(control);
 
-        if (cycle_counter % 2 == 0){
-            model_control.calc_u(mahi::util::seconds(curr_sim_time), state, control, traj);
-        }
+        model_control.set_state(mahi::util::seconds(curr_sim_time), state, control, traj);
         auto control_result = model_control.control_at_time(mahi::util::seconds(curr_sim_time));
-
         control = control_result.u;
+        // mahi::util::print("time: {}, state: {}, control: {}",control_result.time,state,control);
 
         std::vector<casadi::DM> lin_args = {state, control};
         std::vector<double> x_dot(ext_x_dot_init(lin_args)[0]);
 
         for (auto i = 0; i < state.size(); i++){
-            state[i] += x_dot[i]*model_control.model_parameters.step_size.as_seconds();
+            state[i] += x_dot[i]*sim_rate.as_seconds();
         }
 
-        curr_sim_time += model_control.model_parameters.step_size.as_seconds();
         auto solve_time = my_clock.get_elapsed_time().as_milliseconds();
         // std::cout << solve_time << ", ";
         avg_solve_time = (avg_solve_time*cycle_counter+(double)solve_time)/(cycle_counter+1);
         cycle_counter++;
+        curr_sim_time = sim_clock.wait().as_seconds();
     }
 
     mahi::util::print("sim time: {:.2f} s, avg solve time: {:.2f} ms",sim_clock.get_elapsed_time().as_seconds(),avg_solve_time);
 
+    model_control.stop_calc();
+
     // Extract the optimal state trajectory
     std::ofstream file;
-    std::string filename = model_name + "_results.m";
+    std::string filename = model_name + "_results_threaded.m";
     file.open(filename.c_str());
 
     // Save results

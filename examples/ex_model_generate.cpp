@@ -97,7 +97,7 @@ int main(int argc, char* argv[])
                                      u.size1(),                // num_u
                                      time_step,                // step_size
                                      num_shooting_nodes,       // num_shooting_nodes
-                                     linear);                  // is_linear
+                                     linear);                  // is_linear;                  
 
     // 
     ModelGenerator my_generator(model_parameters, x, x_dot, u);

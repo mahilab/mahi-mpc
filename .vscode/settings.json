@@ -76,6 +76,10 @@
         "mutex": "cpp",
         "numeric": "cpp",
         "thread": "cpp",
-        "variant": "cpp"
-    }
+        "variant": "cpp",
+        "string_view": "cpp",
+        "xmemory0": "cpp",
+        "core": "cpp"
+    },
+    "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools"
 }

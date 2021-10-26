@@ -109,7 +109,12 @@ void ModelGenerator::create_model(){
     
     casadi::MX error = casadi::MX::sym("error",(m_model_parameters.num_x,1));
     casadi::MX Q = casadi::MX::eye(m_model_parameters.num_x);
+    for (size_t i = m_model_parameters.num_x/2; i < m_model_parameters.num_x; i++){
+        Q(i,i) = 0.5;
+    }
 
+    casadi::MX R = casadi::MX::eye(m_model_parameters.num_u);
+    
     // Constratin function and bounds
     std::vector<casadi::MX> g_vec;
 
@@ -170,9 +175,17 @@ void ModelGenerator::create_model(){
         g_vec.push_back(current_state-X[k+1]);
         auto desired_state = traj.nz(casadi::Slice(k*static_cast<int>(m_model_parameters.num_x),(k+1)*static_cast<int>(m_model_parameters.num_x)));
         
+        // for (size_t i = m_model_parameters.num_x/2; i < m_model_parameters.num_x; i++){
+        //     desired_state(i) = 0;
+        // }
+
         // Add objective function contribution
         error = current_state - desired_state;
         J += mtimes(error.T(),mtimes(Q,error));//error.T()*Q*error;
+        if (k != 0){
+            auto delta_U = U[k] - U[k-1];
+            J += mtimes(delta_U.T(),mtimes(R,delta_U))*0.01;
+        }
     }
 
     // NLP

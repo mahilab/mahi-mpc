@@ -5,6 +5,7 @@
 #include <Mahi/Casadi/ModelParameters.hpp>
 #include <Mahi/Util/Timing/Time.hpp>
 #include <casadi/casadi.hpp>
+#include <mutex>
 
 class ModelControl
 {
@@ -20,14 +21,20 @@ public:
     };
 
     ModelControl(std::string model_name, casadi::Dict solver_opts);
+    ~ModelControl();
 
     ModelParameters model_parameters;
     std::vector<ControlResult> control_results;
 
-    std::vector<ControlResult> calc_u(mahi::util::Time control_time,const std::vector<double>& state, const std::vector<double>& control,std::vector<double> traj);
+    void calc_u(mahi::util::Time time,const std::vector<double>& state, const std::vector<double>& control,std::vector<double> traj);
     void load_model(const std::string& model_name);
 
     ControlResult control_at_time(mahi::util::Time time);
+
+    void start_calc();
+    void stop_calc();
+
+    void set_state(mahi::util::Time time,const std::vector<double>& state, const std::vector<double>& control, std::vector<double> traj);
 private:
     casadi::Dict m_solver_opts;
     mahi::util::Time curr_time;
@@ -43,7 +50,18 @@ private:
     std::vector<double> v_min;
     std::vector<double> v_max;
 
-    std::vector<ControlResult> format_outputs(std::vector<double> opt_output);
-    
+    std::atomic<bool> m_stop = false;
 
+    mahi::util::Time m_time;
+    std::vector<double> m_state;
+    std::vector<double> m_control;
+    std::vector<double> m_traj;
+    std::mutex m_state_mutex;
+    std::mutex m_output_mutex;
+
+    std::atomic<bool> m_done_calcing = true;
+
+    void format_outputs(std::vector<double> opt_output);
+    
+    int m_num_control_inputs_saved = 0;
 };
