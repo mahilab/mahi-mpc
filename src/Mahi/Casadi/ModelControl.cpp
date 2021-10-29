@@ -113,6 +113,12 @@ void ModelControl::stop_calc(){m_stop = true;}
 void ModelControl::calc_u(mahi::util::Time control_time,const std::vector<double>& state, const std::vector<double>& control, std::vector<double> traj){
 
     curr_time = control_time;
+
+    static std::vector<double> Q = {100, 50, 50, 50, 0.1, 0.1, 0.1, 0.1};
+	static std::vector<double> R = {0.1, 1.0, 1.0, 0.1};
+
+    for (const auto &q : Q) traj.push_back(q);
+    for (const auto &r : R) traj.push_back(r);
     
     // set A and B if necessary
     if (model_parameters.is_linear){

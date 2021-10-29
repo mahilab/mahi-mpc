@@ -10,7 +10,7 @@ ModelGenerator::ModelGenerator(ModelParameters model_parameters, casadi::SX x, c
     m_x_dot(x_dot),
     m_u(u)
 {
-
+    
 }
 
 ModelGenerator::~ModelGenerator(){
@@ -72,6 +72,7 @@ void ModelGenerator::create_model(){
 
     // Offset in V --- this is like a counter variable
     int offset=0;
+    std::cout << "here1";
 
     // declare vectors for the state and control at each node
     std::vector<casadi::MX> X, U;
@@ -106,19 +107,20 @@ void ModelGenerator::create_model(){
     // Objective function
     casadi::MX J = 0;
     double current_t = 0.0;
+
+    std::cout << "here1";
     
     casadi::MX error = casadi::MX::sym("error",(m_model_parameters.num_x,1));
     casadi::MX Q = casadi::MX::eye(m_model_parameters.num_x);
-    for (size_t i = m_model_parameters.num_x/2; i < m_model_parameters.num_x; i++){
-        Q(i,i) = 0.5;
-    }
-
     casadi::MX R = casadi::MX::eye(m_model_parameters.num_u);
     
     // Constratin function and bounds
     std::vector<casadi::MX> g_vec;
 
     int traj_size = m_model_parameters.num_shooting_nodes*m_model_parameters.num_x;
+
+    traj_size += m_model_parameters.num_x  // Q
+               + m_model_parameters.num_u; // R
 
     if (m_model_parameters.is_linear){
         traj_size += m_model_parameters.num_x*m_model_parameters.num_x // A
@@ -128,9 +130,23 @@ void ModelGenerator::create_model(){
                    + m_model_parameters.num_u;        // u_init
     }
 
+    std::cout << "here2";
+
     // create a vector of symbolic variables that we will import. This is of size (num_time_steps * num_states)
     // fir the nonlinear case, and for the linear case, A, B, x_dot_init, x_init, and u_init are also passed
     casadi::MX traj = casadi::MX::sym("traj", traj_size); // traj_size
+
+    int start_Q = (int)(m_model_parameters.num_shooting_nodes*m_model_parameters.num_x);
+    int start_R = start_Q + m_model_parameters.num_x;
+    int end_R   = start_R + m_model_parameters.num_u;
+
+    // std::cout << "here3";
+    casadi::MX Q_in = reshape(traj(casadi::Slice(start_Q,start_R)),m_model_parameters.num_x,1);
+    casadi::MX R_in = reshape(traj(casadi::Slice(start_R,end_R)),m_model_parameters.num_u,1);
+    for (size_t i = 0; i < m_model_parameters.num_x; i++) Q(i,i) = Q_in(i);
+    for (size_t i = 0; i < m_model_parameters.num_u; i++) R(i,i) = R_in(i);
+    // std::cout << "here4";
+
 
     casadi::MX lin_A;
     casadi::MX lin_B;
@@ -141,19 +157,25 @@ void ModelGenerator::create_model(){
     // if it is linear, we need to get the extra variables that were passed as parameters and rshape them
     // to the proper size to use
     if (m_model_parameters.is_linear){
-        int start_A          = (int)(m_model_parameters.num_shooting_nodes*m_model_parameters.num_x);
+        int start_A          = end_R;
         int start_B          = start_A + m_model_parameters.num_x*m_model_parameters.num_x;
         int start_x_dot_init = start_B + m_model_parameters.num_x*m_model_parameters.num_u;
         int start_x_init     = start_x_dot_init + m_model_parameters.num_x;
         int start_u_init     = start_x_init + m_model_parameters.num_x;
         int end_u_init       = start_u_init + m_model_parameters.num_u;
+        std::cout << "here5";   
+        std::cout << traj.size1();
+        std::cout << end_u_init;
 
         lin_A      = reshape(traj(casadi::Slice(start_A,start_B)),m_model_parameters.num_x,m_model_parameters.num_x);
         lin_B      = reshape(traj(casadi::Slice(start_B,start_x_dot_init)),m_model_parameters.num_x,m_model_parameters.num_u);
         x_dot_init = reshape(traj(casadi::Slice(start_x_dot_init,start_x_init)),m_model_parameters.num_x,1);
         x_init_in  = reshape(traj(casadi::Slice(start_x_init,start_u_init)),m_model_parameters.num_x,1);
         u_init_in  = reshape(traj(casadi::Slice(start_u_init,end_u_init)),m_model_parameters.num_u,1);
+
     }
+    std::cout << "here";
+
 
 
     // Loop over shooting nodes
@@ -182,10 +204,8 @@ void ModelGenerator::create_model(){
         // Add objective function contribution
         error = current_state - desired_state;
         J += mtimes(error.T(),mtimes(Q,error));//error.T()*Q*error;
-        if (k != 0){
-            auto delta_U = U[k] - U[k-1];
-            J += mtimes(delta_U.T(),mtimes(R,delta_U))*0.01;
-        }
+        auto delta_U = U[k] - ((k == 0) ? u_init_in : U[k-1]);
+        J += mtimes(delta_U.T(),mtimes(R,delta_U));
     }
 
     // NLP
