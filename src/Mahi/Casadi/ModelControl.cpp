@@ -2,9 +2,12 @@
 #include <Mahi/Casadi/ModelControl.hpp>
 
 
-ModelControl::ModelControl(std::string model_name, casadi::Dict solver_opts):
+ModelControl::ModelControl(std::string model_name, std::vector<double> Q, std::vector<double> R, casadi::Dict solver_opts):
+m_Q(Q),
+m_R(R),
 m_solver_opts(solver_opts)
 {
+    std::cout << m_R << std::endl;
     load_model(model_name);
 }
 
@@ -114,11 +117,14 @@ void ModelControl::calc_u(mahi::util::Time control_time,const std::vector<double
 
     curr_time = control_time;
 
-    static std::vector<double> Q = {100, 50, 50, 50, 0.1, 0.1, 0.1, 0.1};
-	static std::vector<double> R = {0.1, 1.0, 1.0, 0.1};
+    // static std::vector<double> Q = {100, 50, 50, 50, 0.1, 0.1, 0.1, 0.1};
+	// static std::vector<double> R = {0.1, 1.0, 1.0, 1.0};
 
-    for (const auto &q : Q) traj.push_back(q);
-    for (const auto &r : R) traj.push_back(r);
+    // static std::vector<double> Q = {10, 1, 1, 10, 5, 5, 5, 5};
+    // static std::vector<double> R = {0,0,0,0};
+
+    for (const auto &q : m_Q) traj.push_back(q);
+    for (const auto &r : m_R) traj.push_back(r);
     
     // set A and B if necessary
     if (model_parameters.is_linear){

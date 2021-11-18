@@ -72,7 +72,6 @@ void ModelGenerator::create_model(){
 
     // Offset in V --- this is like a counter variable
     int offset=0;
-    std::cout << "here1";
 
     // declare vectors for the state and control at each node
     std::vector<casadi::MX> X, U;
@@ -108,7 +107,6 @@ void ModelGenerator::create_model(){
     casadi::MX J = 0;
     double current_t = 0.0;
 
-    std::cout << "here1";
     
     casadi::MX error = casadi::MX::sym("error",(m_model_parameters.num_x,1));
     casadi::MX Q = casadi::MX::eye(m_model_parameters.num_x);
@@ -130,7 +128,6 @@ void ModelGenerator::create_model(){
                    + m_model_parameters.num_u;        // u_init
     }
 
-    std::cout << "here2";
 
     // create a vector of symbolic variables that we will import. This is of size (num_time_steps * num_states)
     // fir the nonlinear case, and for the linear case, A, B, x_dot_init, x_init, and u_init are also passed
@@ -140,12 +137,10 @@ void ModelGenerator::create_model(){
     int start_R = start_Q + m_model_parameters.num_x;
     int end_R   = start_R + m_model_parameters.num_u;
 
-    // std::cout << "here3";
     casadi::MX Q_in = reshape(traj(casadi::Slice(start_Q,start_R)),m_model_parameters.num_x,1);
     casadi::MX R_in = reshape(traj(casadi::Slice(start_R,end_R)),m_model_parameters.num_u,1);
     for (size_t i = 0; i < m_model_parameters.num_x; i++) Q(i,i) = Q_in(i);
     for (size_t i = 0; i < m_model_parameters.num_u; i++) R(i,i) = R_in(i);
-    // std::cout << "here4";
 
 
     casadi::MX lin_A;
@@ -163,9 +158,6 @@ void ModelGenerator::create_model(){
         int start_x_init     = start_x_dot_init + m_model_parameters.num_x;
         int start_u_init     = start_x_init + m_model_parameters.num_x;
         int end_u_init       = start_u_init + m_model_parameters.num_u;
-        std::cout << "here5";   
-        std::cout << traj.size1();
-        std::cout << end_u_init;
 
         lin_A      = reshape(traj(casadi::Slice(start_A,start_B)),m_model_parameters.num_x,m_model_parameters.num_x);
         lin_B      = reshape(traj(casadi::Slice(start_B,start_x_dot_init)),m_model_parameters.num_x,m_model_parameters.num_u);
@@ -174,7 +166,6 @@ void ModelGenerator::create_model(){
         u_init_in  = reshape(traj(casadi::Slice(start_u_init,end_u_init)),m_model_parameters.num_u,1);
 
     }
-    std::cout << "here";
 
 
 

@@ -20,7 +20,7 @@ public:
         std::vector<double> u;
     };
 
-    ModelControl(std::string model_name, casadi::Dict solver_opts);
+    ModelControl(std::string model_name, std::vector<double> Q= {}, std::vector<double> R = {}, casadi::Dict solver_opts = casadi::Dict());
     ~ModelControl();
 
     ModelParameters model_parameters;
@@ -42,6 +42,9 @@ private:
     casadi::Function m_solver;
     std::map<std::string, casadi::DM> m_solver_args;
     std::map<std::string, casadi::DM> m_solver_result;
+
+    std::vector<double> m_Q;
+    std::vector<double> m_R;
 
     casadi::Function get_A;
     casadi::Function get_B;

@@ -18,7 +18,7 @@ int main(int argc, char* argv[])
     if (result.count("linear")) model_name = "linear_" + model_name;
     std::cout << "Loading " << model_name << std::endl;
     casadi::Dict solver_opts;
-    ModelControl model_control(model_name, solver_opts);
+    ModelControl model_control(model_name);
 
     std::vector<double> traj;
 
@@ -71,7 +71,7 @@ int main(int argc, char* argv[])
         x_result.push_back(state);
         u_result.push_back(control);
 
-        if (cycle_counter % 2 == 0){
+        if (cycle_counter % 5 == 0){
             model_control.calc_u(mahi::util::seconds(curr_sim_time), state, control, traj);
         }
         auto control_result = model_control.control_at_time(mahi::util::seconds(curr_sim_time));

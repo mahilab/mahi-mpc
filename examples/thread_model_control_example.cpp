@@ -10,6 +10,8 @@ int main(int argc, char* argv[])
 
     options.add_options()
         ("p,double_pendulum", "generate double pendulum instead of MOE")
+        ("q, q_vec", "Q vector for MPC control", mahi::util::value<std::vector<double>>())
+        ("r, r_vec", "R vector for MPC control", mahi::util::value<std::vector<double>>())
         ("l,linear", "Generates linearized model.");
 
     auto result = options.parse(argc, argv);
@@ -18,7 +20,13 @@ int main(int argc, char* argv[])
     if (result.count("linear")) model_name = "linear_" + model_name;
     std::cout << "Loading " << model_name << std::endl;
     casadi::Dict solver_opts;
-    ModelControl model_control(model_name, solver_opts);
+
+    std::vector<double> Q = {10, 1, 1, 1, 5, 5, 5, 5};
+    std::vector<double> R = {5,5,5,5};
+
+    if (result.count("q_vec")) Q = result["q_vec"].as<std::vector<double>>();
+    if (result.count("r_vec")) R = result["r_vec"].as<std::vector<double>>();
+    ModelControl model_control(model_name, Q, R);
 
     std::vector<double> traj;
 
@@ -32,14 +40,13 @@ int main(int argc, char* argv[])
         sin_freq = 1.0;
     } 
     else{
-        sin_amp = 0.5;
+        sin_amp = 0.25;
         sin_freq = 0.25;
     }
 
-
     const int nx = model_control.model_parameters.num_x;
 
-    mahi::util::Time sim_time = mahi::util::seconds(1.0);
+    mahi::util::Time sim_time = mahi::util::seconds(2);
 
     std::vector<double> state(model_control.model_parameters.num_x,0);
     std::vector<double> control(model_control.model_parameters.num_u,0);
@@ -71,7 +78,7 @@ int main(int argc, char* argv[])
     mahi::util::Time sim_rate = mahi::util::microseconds(1000);
     mahi::util::Timer sim_clock(sim_rate);
     while (curr_sim_time < sim_time.as_seconds()){
-        std::cout <<cycle_counter << "\n";
+        // std::cout <<cycle_counter << "\n";
         // update trajectory with new desired
         mahi::util::Clock my_clock;
         curr_traj_time = curr_sim_time;
@@ -142,9 +149,13 @@ int main(int argc, char* argv[])
     }
 
     file << "figure;" << std::endl;
+    file << "subplot(2,1,1)" << std::endl;
     file << "hold on;" << std::endl;
-    for (size_t i = 0; i < x_result[0].size(); i++){
+    for (size_t i = 0; i < x_result[0].size()/2; i++){
         file << "plot(t,q" << i << ");" << std::endl;
+    }
+    for (size_t i = x_result[0].size()/2; i < x_result[0].size(); i++){
+        file << "plot(t,q" << i << ",'--');" << std::endl;
     }
     file << "xlabel('Time (s)');" << std::endl;
     file << "ylabel('Position (rad)');" << std::endl;
@@ -155,7 +166,7 @@ int main(int argc, char* argv[])
     }
     file << "');" << std::endl; 
 
-    file << "figure;" << std::endl;
+    file << "subplot(2,1,2)" << std::endl;
     file << "hold on;" << std::endl;
     for (size_t i = 0; i < u_result[0].size(); i++){
         file << "plot(t,T" << i << ");" << std::endl;

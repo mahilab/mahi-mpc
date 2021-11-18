@@ -71,9 +71,15 @@ int main(int argc, char* argv[])
 
         SX q_dot = SX::vertcat({q0_dot,q1_dot,q2_dot,q3_dot});
 
+        std::vector<double>  B_coef = {0.1215, 0.0252, 0.0019, 0.0029};
+        std::vector<double> Fk_coef = {   0.5, 0.1891, 0.0541, 0.1339};
+
+        SX B = SX::vertcat({B_coef[0]*q0_dot*1.0, B_coef[1]*q1_dot*1.0, B_coef[2]*q2_dot*1.0, B_coef[3]*q3_dot*1.0});
+        SX Fk = SX::vertcat({Fk_coef[0]*tanh(q0_dot*10.0), Fk_coef[1]*tanh(q1_dot*10.0), Fk_coef[2]*tanh(q2_dot*10.0), Fk_coef[3]*tanh(q3_dot*10.0)});
+
         auto V = get_V(x);
         auto G = get_G(x);
-        auto B_eom = u - mtimes(V,q_dot) - G;// - B - Fk;
+        auto B_eom = u - mtimes(V,q_dot) - G - B - Fk;
         auto A_eom = get_M(x);
         SX q_d_dot = solve(A_eom,B_eom);
         x_dot = vertcat(q_dot,q_d_dot);
