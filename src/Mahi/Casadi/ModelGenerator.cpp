@@ -109,8 +109,9 @@ void ModelGenerator::create_model(){
 
     
     casadi::MX error = casadi::MX::sym("error",(m_model_parameters.num_x,1));
-    casadi::MX Q = casadi::MX::eye(m_model_parameters.num_x);
-    casadi::MX R = casadi::MX::eye(m_model_parameters.num_u);
+    casadi::MX Q = casadi::MX::eye(m_model_parameters.num_x); // weight on positions and velocities
+    casadi::MX R = casadi::MX::eye(m_model_parameters.num_u); // weight on change in control inputs
+    casadi::MX Rm = casadi::MX::eye(m_model_parameters.num_u);// weight on maginutde of control inputs
     
     // Constratin function and bounds
     std::vector<casadi::MX> g_vec;
@@ -118,7 +119,8 @@ void ModelGenerator::create_model(){
     int traj_size = m_model_parameters.num_shooting_nodes*m_model_parameters.num_x;
 
     traj_size += m_model_parameters.num_x  // Q
-               + m_model_parameters.num_u; // R
+               + m_model_parameters.num_u  // R
+               + m_model_parameters.num_u; // Rm
 
     if (m_model_parameters.is_linear){
         traj_size += m_model_parameters.num_x*m_model_parameters.num_x // A
@@ -128,20 +130,21 @@ void ModelGenerator::create_model(){
                    + m_model_parameters.num_u;        // u_init
     }
 
-
     // create a vector of symbolic variables that we will import. This is of size (num_time_steps * num_states)
     // fir the nonlinear case, and for the linear case, A, B, x_dot_init, x_init, and u_init are also passed
     casadi::MX traj = casadi::MX::sym("traj", traj_size); // traj_size
 
-    int start_Q = (int)(m_model_parameters.num_shooting_nodes*m_model_parameters.num_x);
-    int start_R = start_Q + m_model_parameters.num_x;
-    int end_R   = start_R + m_model_parameters.num_u;
+    int start_Q  = (int)(m_model_parameters.num_shooting_nodes*m_model_parameters.num_x);
+    int start_R  = start_Q + m_model_parameters.num_x;
+    int start_Rm = start_R + m_model_parameters.num_u;
+    int end_Rm   = start_Rm + m_model_parameters.num_u;
 
     casadi::MX Q_in = reshape(traj(casadi::Slice(start_Q,start_R)),m_model_parameters.num_x,1);
-    casadi::MX R_in = reshape(traj(casadi::Slice(start_R,end_R)),m_model_parameters.num_u,1);
-    for (size_t i = 0; i < m_model_parameters.num_x; i++) Q(i,i) = Q_in(i);
-    for (size_t i = 0; i < m_model_parameters.num_u; i++) R(i,i) = R_in(i);
-
+    casadi::MX R_in = reshape(traj(casadi::Slice(start_R,start_Rm)),m_model_parameters.num_u,1);
+    casadi::MX Rm_in = reshape(traj(casadi::Slice(start_Rm,end_Rm)),m_model_parameters.num_u,1);
+    for (size_t i = 0; i < m_model_parameters.num_x; i++) Q(i,i)  = Q_in(i);
+    for (size_t i = 0; i < m_model_parameters.num_u; i++) R(i,i)  = R_in(i);
+    for (size_t i = 0; i < m_model_parameters.num_u; i++) Rm(i,i) = Rm_in(i);
 
     casadi::MX lin_A;
     casadi::MX lin_B;
@@ -152,7 +155,7 @@ void ModelGenerator::create_model(){
     // if it is linear, we need to get the extra variables that were passed as parameters and rshape them
     // to the proper size to use
     if (m_model_parameters.is_linear){
-        int start_A          = end_R;
+        int start_A          = end_Rm;
         int start_B          = start_A + m_model_parameters.num_x*m_model_parameters.num_x;
         int start_x_dot_init = start_B + m_model_parameters.num_x*m_model_parameters.num_u;
         int start_x_init     = start_x_dot_init + m_model_parameters.num_x;
@@ -164,10 +167,7 @@ void ModelGenerator::create_model(){
         x_dot_init = reshape(traj(casadi::Slice(start_x_dot_init,start_x_init)),m_model_parameters.num_x,1);
         x_init_in  = reshape(traj(casadi::Slice(start_x_init,start_u_init)),m_model_parameters.num_x,1);
         u_init_in  = reshape(traj(casadi::Slice(start_u_init,end_u_init)),m_model_parameters.num_u,1);
-
     }
-
-
 
     // Loop over shooting nodes
     for(int k=0; k<m_model_parameters.num_shooting_nodes; ++k){
@@ -192,11 +192,16 @@ void ModelGenerator::create_model(){
         //     desired_state(i) = 0;
         // }
 
-        // Add objective function contribution
+        // Add objective function contribution on error of state
         error = current_state - desired_state;
         J += mtimes(error.T(),mtimes(Q,error));//error.T()*Q*error;
+
+        // Add objective function contribution on change of input
         auto delta_U = U[k] - ((k == 0) ? u_init_in : U[k-1]);
         J += mtimes(delta_U.T(),mtimes(R,delta_U));
+
+        // Add objective function contribution on change of input
+        J += mtimes(U[k].T(),mtimes(Rm,U[k]));
     }
 
     // NLP
