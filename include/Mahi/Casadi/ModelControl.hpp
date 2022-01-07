@@ -64,8 +64,10 @@ private:
     std::vector<double> m_state;
     std::vector<double> m_control;
     std::vector<double> m_traj;
+    
     std::mutex m_state_mutex;
     std::mutex m_output_mutex;
+    std::mutex m_control_limits_mutex;
 
     std::atomic<bool> m_done_calcing = true;
 

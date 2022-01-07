@@ -149,9 +149,12 @@ void ModelControl::calc_u(mahi::util::Time control_time,const std::vector<double
     std::copy(state.begin(),state.end(),v_max.begin());    
 
     // set bounds
-    for(int k=0; k<model_parameters.num_shooting_nodes; ++k){
-        std::copy(model_parameters.u_min.begin(),model_parameters.u_min.end(),v_min.begin()+k*(nx+nu) + nx);
-        std::copy(model_parameters.u_max.begin(),model_parameters.u_max.end(),v_max.begin()+k*(nx+nu) + nx);
+    {
+        std::lock_guard<std::mutex> lg(m_control_limits_mutex);
+        for(int k=0; k<model_parameters.num_shooting_nodes; ++k){
+            std::copy(model_parameters.u_min.begin(),model_parameters.u_min.end(),v_min.begin()+k*(nx+nu) + nx);
+            std::copy(model_parameters.u_max.begin(),model_parameters.u_max.end(),v_max.begin()+k*(nx+nu) + nx);
+        }
     }
 
     m_solver_args["lbx"] = v_min;
@@ -205,6 +208,7 @@ void ModelControl::update_weights(std::vector<double> Q, std::vector<double> R, 
 }
 
 void ModelControl::update_control_limits(std::vector<double> u_min, std::vector<double> u_max){
+    std::lock_guard<std::mutex> lg(m_control_limits_mutex);
     model_parameters.u_min = u_min;
     model_parameters.u_max = u_max;
 }
