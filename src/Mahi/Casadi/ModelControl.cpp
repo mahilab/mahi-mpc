@@ -103,9 +103,7 @@ void ModelControl::start_calc(){
             sim_times.push_back(local_time.as_milliseconds());
             calc_times.push_back(timing_clock.get_elapsed_time().as_milliseconds());
         }
-        for (size_t i = 0; i < sim_times.size(); i++){
-            mahi::util::print("sim time: {}, calc_times: {}", sim_times[i],calc_times[i]);
-        }
+        std::cout << "Average calc time: " << mahi::util::mean(calc_times) << " ms" << std::endl;
         m_done_calcing = true;
     });
     new_thread.detach();
@@ -150,6 +148,12 @@ void ModelControl::calc_u(mahi::util::Time control_time,const std::vector<double
     std::copy(state.begin(),state.end(),v_min.begin());
     std::copy(state.begin(),state.end(),v_max.begin());    
 
+    // set bounds
+    for(int k=0; k<model_parameters.num_shooting_nodes; ++k){
+        std::copy(model_parameters.u_min.begin(),model_parameters.u_min.end(),v_min.begin()+k*(nx+nu) + nx);
+        std::copy(model_parameters.u_max.begin(),model_parameters.u_max.end(),v_max.begin()+k*(nx+nu) + nx);
+    }
+
     m_solver_args["lbx"] = v_min;
     m_solver_args["ubx"] = v_max;
     // solve
@@ -192,4 +196,15 @@ ModelControl::ControlResult ModelControl::control_at_time(mahi::util::Time time)
     int i = 0;
     while (control_results[i].time < time && i < control_results.size()) i++;
     return (i == 0) ? control_results[0] : control_results[i-1];
+}
+
+void ModelControl::update_weights(std::vector<double> Q, std::vector<double> R, std::vector<double> Rm){
+    m_Q = Q;
+    m_R = R;
+    m_Rm = Rm;
+}
+
+void ModelControl::update_control_limits(std::vector<double> u_min, std::vector<double> u_max){
+    model_parameters.u_min = u_min;
+    model_parameters.u_max = u_max;
 }

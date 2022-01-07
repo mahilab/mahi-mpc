@@ -35,6 +35,10 @@ public:
     void stop_calc();
 
     void set_state(mahi::util::Time time,const std::vector<double>& state, const std::vector<double>& control, std::vector<double> traj);
+
+    void update_weights(std::vector<double> Q = {},std::vector<double> R = {},std::vector<double> Rm = {});
+
+    void update_control_limits(std::vector<double> u_min, std::vector<double> u_max);
 private:
     casadi::Dict m_solver_opts;
     mahi::util::Time curr_time;
