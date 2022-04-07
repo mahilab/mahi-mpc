@@ -71,4 +71,21 @@ target_include_directories(mpc
 
 target_link_libraries(mpc casadi mahi::util)
 
+# If this is just being included to another project, this copies casadi.dll and 
+# casadi_nlpsol_ipopt.dll to the main projects build/config directory. Ideally,
+# this would be abstracted for compiler (I think this will only work for MSVC), 
+# but this works for now.
+IF (NOT ${CMAKE_SOURCE_DIR} MATCHES ${CMAKE_CURRENT_SOURCE_DIR})
+add_custom_command(
+        TARGET mpc POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                ${CMAKE_SOURCE_DIR}/build/_deps/casadi-build/$<CONFIG>/casadi.dll
+                ${CMAKE_SOURCE_DIR}/build/$<CONFIG>/casadi.dll)       
+add_custom_command(
+        TARGET mpc POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                ${CMAKE_SOURCE_DIR}/build/_deps/casadi-build/$<CONFIG>/casadi_nlpsol_ipopt.dll
+                ${CMAKE_SOURCE_DIR}/build/$<CONFIG>/casadi_nlpsol_ipopt.dll)       
+ENDIF()
+
 add_subdirectory(examples)
