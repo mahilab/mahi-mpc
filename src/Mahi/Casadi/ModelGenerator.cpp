@@ -234,7 +234,7 @@ void ModelGenerator::create_model(){
         // auto result_err = mtimes(error.T(),mtimes(Q,error));
         // if (k == 0) std::cout << result_int << std::endl;
         // if (k == 0) std::cout << result_err << std::endl;
-        J += mtimes(integral.T(),mtimes(P,integral));
+        // J += mtimes(integral.T(),mtimes(P,integral));
     }
 
     // NLP
