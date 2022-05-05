@@ -58,6 +58,9 @@ set_target_properties(mpc PROPERTIES DEBUG_POSTFIX -d)
 target_compile_features(mpc PUBLIC cxx_std_11)
 set_target_properties(mpc PROPERTIES OUTPUT_NAME mpc)
 
+target_compile_definitions(mpc PUBLIC MAHI_MPC) # for compatibility checks
+
+
 install(TARGETS mpc EXPORT mpc-targets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 
 target_sources(mpc PRIVATE ${MAHI_MPC_SRC} ${MAHI_MPC_HEADERS}) # for intellisense
