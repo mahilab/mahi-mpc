@@ -88,4 +88,18 @@ add_custom_command(
                 ${CMAKE_SOURCE_DIR}/build/$<CONFIG>/casadi_nlpsol_ipopt.dll)       
 ENDIF()
 
+# this adds a function that can be used by executables if they are not output in the main build directory
+function(link_mpc mpc_target_name)
+add_custom_command(
+    TARGET ${mpc_target_name} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            ${CMAKE_SOURCE_DIR}/build/_deps/casadi-build/$<CONFIG>/casadi.dll
+            $<TARGET_FILE_DIR:${mpc_target_name}>)     
+add_custom_command(
+    TARGET ${mpc_target_name} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            ${CMAKE_SOURCE_DIR}/build/_deps/casadi-build/$<CONFIG>/casadi_nlpsol_ipopt.dll
+            $<TARGET_FILE_DIR:${mpc_target_name}>)     
+endfunction()
+
 add_subdirectory(examples)
