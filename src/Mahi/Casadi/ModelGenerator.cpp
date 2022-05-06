@@ -127,6 +127,7 @@ void ModelGenerator::create_model(){
 
     int traj_size = m_model_parameters.num_shooting_nodes*m_model_parameters.num_x;
 
+
     traj_size += m_model_parameters.num_x  // Q
                + m_model_parameters.num_u  // R
                + m_model_parameters.num_u  // Rm
@@ -138,9 +139,9 @@ void ModelGenerator::create_model(){
         traj_size += m_model_parameters.num_x*m_model_parameters.num_x // A
                    + m_model_parameters.num_x*m_model_parameters.num_u // B
                    + m_model_parameters.num_x         // x_dot_init
-                   + m_model_parameters.num_x         // x_init
-                   + m_model_parameters.num_u;        // u_init
+                   + m_model_parameters.num_x;        // x_init
     }
+    traj_size += m_model_parameters.num_u;            // u_init
 
     // create a vector of symbolic variables that we will import. This is of size (num_time_steps * num_states)
     // fir the nonlinear case, and for the linear case, A, B, x_dot_init, x_init, and u_init are also passed
@@ -187,6 +188,12 @@ void ModelGenerator::create_model(){
         x_init_in  = reshape(traj(casadi::Slice(start_x_init,start_u_init)),m_model_parameters.num_x,1);
         u_init_in  = reshape(traj(casadi::Slice(start_u_init,end_u_init)),m_model_parameters.num_u,1);
     }
+    else{
+        int start_u_init     = end_int;
+        int end_u_init       = start_u_init + m_model_parameters.num_u;
+        u_init_in  = reshape(traj(casadi::Slice(start_u_init,end_u_init)),m_model_parameters.num_u,1);
+    }
+
 
     // Loop over shooting nodes
     for(int k=0; k<m_model_parameters.num_shooting_nodes; ++k){
@@ -214,19 +221,22 @@ void ModelGenerator::create_model(){
 
         
         // auto integral_add = error.nz(casadi::Slice(0,m_model_parameters.num_x/2));
-        if (k == 0) {
-            integral = int_in + error.nz(casadi::Slice(0,static_cast<int>(m_model_parameters.num_x)/2));
-        }
-        else {
-            if (k < 10) integral = 0.95*integral + error.nz(casadi::Slice(0,static_cast<int>(m_model_parameters.num_x)/2))*m_model_parameters.step_size.as_seconds();//pos_error
-        }
+        // if (k == 0) {
+        //     integral = int_in + error.nz(casadi::Slice(0,static_cast<int>(m_model_parameters.num_x)/2));
+        // }
+        // else {
+        //     if (k < 10) integral = 0.95*integral + error.nz(casadi::Slice(0,static_cast<int>(m_model_parameters.num_x)/2))*m_model_parameters.step_size.as_seconds();//pos_error
+        // }
 
         J += mtimes(error.T(),mtimes(Q,error));//error.T()*Q*error;
-
         // Add objective function contribution on change of input
+        // std::cout << u_init_in;
         auto delta_U = U[k] - ((k == 0) ? u_init_in : U[k-1]);
+        // std::cout << R << std::endl;
+        // std::cout << delta_U << std::endl;
         J += mtimes(delta_U.T(),mtimes(R,delta_U));
 
+        // std::cout << k << std::endl;
         // Add objective function contribution on change of input
         J += mtimes(U[k].T(),mtimes(Rm,U[k]));
 

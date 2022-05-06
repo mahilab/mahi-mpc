@@ -136,8 +136,8 @@ void ModelControl::calc_u(mahi::util::Time control_time,const std::vector<double
         for (const auto &b_ : B_res) traj.push_back(b_);
         for (const auto &x_dot_init_ : x_dot_init_res) traj.push_back(x_dot_init_);
         for (const auto &x_next_ : state) traj.push_back(x_next_);
-        for (const auto &u_ : control) traj.push_back(u_);
     }
+    for (const auto &u_ : control) traj.push_back(u_);
 
     // set input args
     m_solver_args["p"]  = traj;
