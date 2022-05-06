@@ -2,11 +2,10 @@
 #include <Mahi/Casadi/ModelControl.hpp>
 
 
-ModelControl::ModelControl(std::string model_name, std::vector<double> Q, std::vector<double> R, std::vector<double> Rm, std::vector<double> P, casadi::Dict solver_opts):
+ModelControl::ModelControl(std::string model_name, std::vector<double> Q, std::vector<double> R, std::vector<double> Rm, casadi::Dict solver_opts):
 m_Q(Q),
 m_R(R),
 m_Rm(Rm),
-m_P(P),
 m_solver_opts(solver_opts)
 {
     load_model(model_name);
@@ -71,13 +70,12 @@ void ModelControl::load_model(const std::string& model_name){
     get_x_dot = casadi::external(model_parameters.name + "_get_x_dot_init",model_parameters.name + "_linear_functions.so");
 }
 
-void ModelControl::set_state(mahi::util::Time time,const std::vector<double>& state, const std::vector<double>& control, std::vector<double> traj, std::vector<double> integral){
+void ModelControl::set_state(mahi::util::Time time,const std::vector<double>& state, const std::vector<double>& control, std::vector<double> traj){
     std::lock_guard<std::mutex> lg(m_state_mutex);
     m_time = time;
     m_state = state;
     m_control = control;
     m_traj = traj;
-    m_integral = integral;
 }
 
 void ModelControl::start_calc(){
@@ -89,7 +87,6 @@ void ModelControl::start_calc(){
         std::vector<double> local_state;
         std::vector<double> local_control;
         std::vector<double> local_traj;
-        std::vector<double> local_integral;
         
         std::vector<double> sim_times;
         std::vector<double> calc_times;
@@ -101,9 +98,8 @@ void ModelControl::start_calc(){
                 local_state = m_state;
                 local_control = m_control;
                 local_traj = m_traj;
-                local_integral = m_integral;
             }
-            calc_u(local_time, local_state, local_control, local_traj, local_integral);
+            calc_u(local_time, local_state, local_control, local_traj);
             sim_times.push_back(local_time.as_milliseconds());
             calc_times.push_back(timing_clock.get_elapsed_time().as_milliseconds());
         }
@@ -115,15 +111,13 @@ void ModelControl::start_calc(){
 
 void ModelControl::stop_calc(){m_stop = true;}
 
-void ModelControl::calc_u(mahi::util::Time control_time,const std::vector<double>& state, const std::vector<double>& control, std::vector<double> traj, std::vector<double> integral){
+void ModelControl::calc_u(mahi::util::Time control_time,const std::vector<double>& state, const std::vector<double>& control, std::vector<double> traj){
 
     curr_time = control_time;
 
     for (const auto &q : m_Q) traj.push_back(q);
     for (const auto &r : m_R) traj.push_back(r);
     for (const auto &rm : m_Rm) traj.push_back(rm);
-    for (const auto &p : m_P) traj.push_back(p);
-    for (const auto &integral_ : integral) traj.push_back(integral_);
     
     // set A and B if necessary
     if (model_parameters.is_linear){

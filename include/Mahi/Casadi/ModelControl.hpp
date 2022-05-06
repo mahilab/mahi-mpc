@@ -20,13 +20,13 @@ public:
         std::vector<double> u;
     };
 
-    ModelControl(std::string model_name, std::vector<double> Q= {}, std::vector<double> R = {}, std::vector<double> Rm = {}, std::vector<double> P = {}, casadi::Dict solver_opts = casadi::Dict());
+    ModelControl(std::string model_name, std::vector<double> Q= {}, std::vector<double> R = {}, std::vector<double> Rm = {}, casadi::Dict solver_opts = casadi::Dict());
     ~ModelControl();
 
     ModelParameters model_parameters;
     std::vector<ControlResult> control_results;
 
-    void calc_u(mahi::util::Time time,const std::vector<double>& state, const std::vector<double>& control,std::vector<double> traj, std::vector<double> integral = {0.0});
+    void calc_u(mahi::util::Time time,const std::vector<double>& state, const std::vector<double>& control,std::vector<double> traj);
     void load_model(const std::string& model_name);
 
     ControlResult control_at_time(mahi::util::Time time);
@@ -34,7 +34,7 @@ public:
     void start_calc();
     void stop_calc();
 
-    void set_state(mahi::util::Time time,const std::vector<double>& state, const std::vector<double>& control, std::vector<double> traj, std::vector<double> integral = {0.0});
+    void set_state(mahi::util::Time time,const std::vector<double>& state, const std::vector<double>& control, std::vector<double> traj);
 
     void update_weights(std::vector<double> Q = {},std::vector<double> R = {},std::vector<double> Rm = {});
 
@@ -50,7 +50,6 @@ private:
     std::vector<double> m_Q;
     std::vector<double> m_R;
     std::vector<double> m_Rm;
-    std::vector<double> m_P;
 
     casadi::Function get_A;
     casadi::Function get_B;
@@ -65,7 +64,6 @@ private:
     std::vector<double> m_state;
     std::vector<double> m_control;
     std::vector<double> m_traj;
-    std::vector<double> m_integral;
     
     std::mutex m_state_mutex;
     std::mutex m_output_mutex;

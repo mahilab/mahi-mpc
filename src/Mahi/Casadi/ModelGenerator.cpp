@@ -116,9 +116,7 @@ void ModelGenerator::create_model(){
     // error_vec.resize(num_shooting_nodes)
 
     casadi::MX error = casadi::MX::sym("error",(m_model_parameters.num_x,1));
-    casadi::MX integral = casadi::MX::sym("integral",(m_model_parameters.num_x,1));
     casadi::MX Q = casadi::MX::eye(m_model_parameters.num_x); // weight on positions and velocities
-    casadi::MX P = casadi::MX::eye(m_model_parameters.num_x/2); // weight on integral term
     casadi::MX R = casadi::MX::eye(m_model_parameters.num_u); // weight on change in control inputs
     casadi::MX Rm = casadi::MX::eye(m_model_parameters.num_u);// weight on maginutde of control inputs
     
@@ -130,9 +128,7 @@ void ModelGenerator::create_model(){
 
     traj_size += m_model_parameters.num_x  // Q
                + m_model_parameters.num_u  // R
-               + m_model_parameters.num_u  // Rm
-               + m_model_parameters.num_x/2  // P
-               + m_model_parameters.num_x/2; // integral
+               + m_model_parameters.num_u;  // Rm
 
 
     if (m_model_parameters.is_linear){
@@ -150,19 +146,12 @@ void ModelGenerator::create_model(){
     int start_Q  = (int)(m_model_parameters.num_shooting_nodes*m_model_parameters.num_x);
     int start_R  = start_Q   + m_model_parameters.num_x;
     int start_Rm = start_R   + m_model_parameters.num_u;
-    int start_P  = start_Rm  + m_model_parameters.num_u;
-    int start_int= start_P   + m_model_parameters.num_x/2;
-    int end_int  = start_int + m_model_parameters.num_x/2; 
+    int end_Rm   = start_Rm  + m_model_parameters.num_u;
 
     casadi::MX Q_in  = reshape(traj(casadi::Slice(start_Q,start_R)),m_model_parameters.num_x,1);
     casadi::MX R_in  = reshape(traj(casadi::Slice(start_R,start_Rm)),m_model_parameters.num_u,1);
-    casadi::MX Rm_in = reshape(traj(casadi::Slice(start_Rm,start_P)),m_model_parameters.num_u,1);
-    casadi::MX P_in  = reshape(traj(casadi::Slice(start_P,start_int)),m_model_parameters.num_x/2,1);
-    casadi::MX int_in = reshape(traj(casadi::Slice(start_int,end_int)),m_model_parameters.num_x/2,1);
-    // for (size_t i = 0; i < m_model_parameters.num_x/2; i++) int_in(i) = int_in_traj(i);
+    casadi::MX Rm_in = reshape(traj(casadi::Slice(start_Rm,end_Rm)),m_model_parameters.num_u,1);
     for (size_t i = 0; i < m_model_parameters.num_x; i++) Q(i,i)   = Q_in(i);
-    for (size_t i = 0; i < m_model_parameters.num_x/2; i++) P(i,i) = P_in(i);
-    // for (size_t i = m_model_parameters.num_x/2; i < m_model_parameters.num_x; i++) P(i,i)  = 0.0;
     for (size_t i = 0; i < m_model_parameters.num_u; i++) R(i,i)   = R_in(i);
     for (size_t i = 0; i < m_model_parameters.num_u; i++) Rm(i,i)  = Rm_in(i);
 
@@ -175,7 +164,7 @@ void ModelGenerator::create_model(){
     // if it is linear, we need to get the extra variables that were passed as parameters and rshape them
     // to the proper size to use
     if (m_model_parameters.is_linear){
-        int start_A          = end_int;
+        int start_A          = end_Rm;
         int start_B          = start_A + m_model_parameters.num_x*m_model_parameters.num_x;
         int start_x_dot_init = start_B + m_model_parameters.num_x*m_model_parameters.num_u;
         int start_x_init     = start_x_dot_init + m_model_parameters.num_x;
@@ -189,7 +178,7 @@ void ModelGenerator::create_model(){
         u_init_in  = reshape(traj(casadi::Slice(start_u_init,end_u_init)),m_model_parameters.num_u,1);
     }
     else{
-        int start_u_init     = end_int;
+        int start_u_init     = end_Rm;
         int end_u_init       = start_u_init + m_model_parameters.num_u;
         u_init_in  = reshape(traj(casadi::Slice(start_u_init,end_u_init)),m_model_parameters.num_u,1);
     }
@@ -198,7 +187,6 @@ void ModelGenerator::create_model(){
     // Loop over shooting nodes
     for(int k=0; k<m_model_parameters.num_shooting_nodes; ++k){
         // iterate through dynamics using either linearized or nonlinear dynamics
-        // casadi::MX current_state;
         casadi::MX current_state = casadi::MX::sym("current_state", m_model_parameters.num_x); // traj_size
         if (m_model_parameters.is_linear){
             auto funcOut =\
@@ -219,32 +207,15 @@ void ModelGenerator::create_model(){
         auto error_func_res = err_fun({{"curr_pos_fun",current_state},{"des_pos_fun",desired_state}});
         error = error_func_res["err_out"];
 
-        
-        // auto integral_add = error.nz(casadi::Slice(0,m_model_parameters.num_x/2));
-        // if (k == 0) {
-        //     integral = int_in + error.nz(casadi::Slice(0,static_cast<int>(m_model_parameters.num_x)/2));
-        // }
-        // else {
-        //     if (k < 10) integral = 0.95*integral + error.nz(casadi::Slice(0,static_cast<int>(m_model_parameters.num_x)/2))*m_model_parameters.step_size.as_seconds();//pos_error
-        // }
+        // Add objective function contribution on traj error
+        J += mtimes(error.T(),mtimes(Q,error));
 
-        J += mtimes(error.T(),mtimes(Q,error));//error.T()*Q*error;
         // Add objective function contribution on change of input
-        // std::cout << u_init_in;
         auto delta_U = U[k] - ((k == 0) ? u_init_in : U[k-1]);
-        // std::cout << R << std::endl;
-        // std::cout << delta_U << std::endl;
         J += mtimes(delta_U.T(),mtimes(R,delta_U));
 
-        // std::cout << k << std::endl;
         // Add objective function contribution on change of input
         J += mtimes(U[k].T(),mtimes(Rm,U[k]));
-
-        // auto result_int = mtimes(integral.T(),mtimes(P,integral));
-        // auto result_err = mtimes(error.T(),mtimes(Q,error));
-        // if (k == 0) std::cout << result_int << std::endl;
-        // if (k == 0) std::cout << result_err << std::endl;
-        // J += mtimes(integral.T(),mtimes(P,integral));
     }
 
     // NLP
