@@ -1,20 +1,20 @@
 #include <Mahi/Util.hpp>
-#include <Mahi/Casadi/ModelControl.hpp>
+#include <Mahi/Mpc/ModelControl.hpp>
 
 using mahi::util::PI;
 using namespace casadi;
+using namespace mahi::mpc;
 
 int main(int argc, char* argv[])
 {
     mahi::util::Options options("options.exe", "Simple Program Demonstrating Options");
 
     options.add_options()
-        ("p,double_pendulum", "generate double pendulum instead of MOE")
         ("l,linear", "Generates linearized model.");
 
     auto result = options.parse(argc, argv);
 
-    std::string model_name = result.count("double_pendulum") ? "double_pendulum" : "moe";
+    std::string model_name = "double_pendulum";
     if (result.count("linear")) model_name = "linear_" + model_name;
     std::cout << "Loading " << model_name << std::endl;
     casadi::Dict solver_opts;

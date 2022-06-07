@@ -2,10 +2,13 @@
 
 #include <string>
 #include <vector>
-#include <Mahi/Casadi/ModelParameters.hpp>
+#include <Mahi/Mpc/ModelParameters.hpp>
 #include <Mahi/Util/Timing/Time.hpp>
 #include <casadi/casadi.hpp>
 #include <mutex>
+
+namespace mahi{
+namespace mpc{
 
 class ModelControl
 {
@@ -75,3 +78,6 @@ private:
     
     int m_num_control_inputs_saved = 0;
 };
+
+} // namespace mpc
+} // namespace mahi

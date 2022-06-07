@@ -18,6 +18,9 @@ cmake_minimum_required(VERSION 3.13)
 project(mahi_mpc VERSION 0.1.0 LANGUAGES CXX)
 
 # Options
+
+option(WITH_MAHI_MPC "Turn ON to build example executable(s)" ON)
+
 if (CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
 option(MAHI_MPC_EXAMPLES "Turn ON to build example executable(s)" ON)
 else()
@@ -46,13 +49,13 @@ if (MSVC)
 endif()
 
 set(MAHI_MPC_SRC
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/Mahi/Casadi/ModelGenerator.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/Mahi/Casadi/ModelParameters.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/Mahi/Casadi/ModelControl.cpp)
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/Mahi/Mpc/ModelGenerator.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/Mahi/Mpc/ModelParameters.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/Mahi/Mpc/ModelControl.cpp)
 
 file(GLOB_RECURSE MAHI_MPC_HEADERS "include/*.hpp")
 
-add_library(mpc ${CMAKE_CURRENT_SOURCE_DIR}/src/Mahi/Casadi/ModelGenerator.cpp)
+add_library(mpc ${CMAKE_CURRENT_SOURCE_DIR}/src/Mahi/Mpc/ModelGenerator.cpp)
 add_library(mahi::mpc ALIAS mpc)
 set_target_properties(mpc PROPERTIES DEBUG_POSTFIX -d)
 target_compile_features(mpc PUBLIC cxx_std_11)
@@ -105,4 +108,6 @@ add_custom_command(
             $<TARGET_FILE_DIR:${mpc_target_name}>)     
 endfunction()
 
+if(MAHI_MPC_EXAMPLES)
 add_subdirectory(examples)
+endif()

@@ -1,8 +1,9 @@
-#include <Mahi/Casadi/ModelGenerator.hpp>
+#include <Mahi/Mpc/ModelGenerator.hpp>
 #include <Mahi/Util.hpp>
 
 using namespace casadi;
 using mahi::util::PI;
+using namespace mahi::mpc;
 
 int main(int argc, char* argv[])
 {

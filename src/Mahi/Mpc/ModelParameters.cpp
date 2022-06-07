@@ -1,5 +1,8 @@
-#include <Mahi/Casadi/ModelParameters.hpp>
+#include <Mahi/Mpc/ModelParameters.hpp>
 #include <casadi/casadi.hpp>
+
+namespace mahi {
+namespace mpc {
 
 ModelParameters::ModelParameters(std::string name_, int num_x_, int num_u_, mahi::util::Time step_size_, size_t num_shooting_nodes_, bool is_linear_, std::vector<double> u_min_, std::vector<double> u_max_, std::vector<double> x_min_,  std::vector<double> x_max_):
     name(name_),
@@ -57,3 +60,6 @@ void from_json(const mahi::util::json& j, ModelParameters& p) {
     
     // std::cout << p.name;
 }
+
+} // namespace mpc
+} // namespace mahi

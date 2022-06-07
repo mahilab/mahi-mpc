@@ -1,6 +1,6 @@
 #pragma once
 
-#include <Mahi/Casadi/LinearModel.hpp>
+#include <Mahi/Mpc/LinearModel.hpp>
 #include <iostream>
 
 class DoublePendulumModel : public LinearModel

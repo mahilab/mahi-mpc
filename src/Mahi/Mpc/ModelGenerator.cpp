@@ -1,8 +1,11 @@
-#include <Mahi/Casadi/ModelGenerator.hpp>
+#include <Mahi/Mpc/ModelGenerator.hpp>
 #include <casadi/casadi.hpp>
 
 using namespace casadi;
 using namespace std;
+
+namespace mahi {
+namespace mpc {
 
 ModelGenerator::ModelGenerator(ModelParameters model_parameters, casadi::SX x, casadi::SX x_dot, casadi::SX u) : 
     m_model_parameters(model_parameters),
@@ -265,3 +268,6 @@ void ModelGenerator::save_param_file(){
         file1 << j;
     file1.close();
 }
+
+} // namespace mpc
+} // namespace mahi

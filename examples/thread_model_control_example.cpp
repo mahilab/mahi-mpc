@@ -1,28 +1,28 @@
 #include <Mahi/Util.hpp>
-#include <Mahi/Casadi/ModelControl.hpp>
+#include <Mahi/Mpc/ModelControl.hpp>
 
 using mahi::util::PI;
 using namespace casadi;
+using namespace mahi::mpc;
 
 int main(int argc, char* argv[])
 {
     mahi::util::Options options("options.exe", "Simple Program Demonstrating Options");
 
     options.add_options()
-        ("p,double_pendulum", "generate double pendulum instead of MOE")
         ("q, q_vec", "Q vector for MPC control", mahi::util::value<std::vector<double>>())
         ("r, r_vec", "R vector for MPC control", mahi::util::value<std::vector<double>>())
         ("l,linear", "Generates linearized model.");
 
     auto result = options.parse(argc, argv);
 
-    std::string model_name = result.count("double_pendulum") ? "double_pendulum" : "moe";
+    std::string model_name = "double_pendulum";
     if (result.count("linear")) model_name = "linear_" + model_name;
     std::cout << "Loading " << model_name << std::endl;
     casadi::Dict solver_opts;
 
-    std::vector<double> Q = {10, 1, 1, 1, 5, 5, 5, 5};
-    std::vector<double> R = {5,5,5,5};
+    std::vector<double> Q = {10, 1, 5, 5};
+    std::vector<double> R = {5,5};
 
     if (result.count("q_vec")) Q = result["q_vec"].as<std::vector<double>>();
     if (result.count("r_vec")) R = result["r_vec"].as<std::vector<double>>();
@@ -33,16 +33,8 @@ int main(int argc, char* argv[])
     double curr_sim_time = 0.0;
 
     // set amplitude based on input option of double_pendulum
-    double sin_amp;
-    double sin_freq;
-    if(result.count("double_pendulum")){
-        sin_amp = 1.0;
-        sin_freq = 1.0;
-    } 
-    else{
-        sin_amp = 0.25;
-        sin_freq = 0.25;
-    }
+    double sin_amp = 1.0;
+    double sin_freq = 1.0;
 
     const int nx = model_control.model_parameters.num_x;
 

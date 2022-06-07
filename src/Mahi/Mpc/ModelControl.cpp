@@ -1,6 +1,8 @@
 #include <Mahi/Util.hpp>
-#include <Mahi/Casadi/ModelControl.hpp>
+#include <Mahi/Mpc/ModelControl.hpp>
 
+namespace mahi {
+namespace mpc {
 
 ModelControl::ModelControl(std::string model_name, std::vector<double> Q, std::vector<double> R, std::vector<double> Rm, casadi::Dict solver_opts):
 m_Q(Q),
@@ -205,3 +207,6 @@ void ModelControl::update_control_limits(std::vector<double> u_min, std::vector<
     model_parameters.u_min = u_min;
     model_parameters.u_max = u_max;
 }
+
+} // namespace mpc
+} // namespace mahi

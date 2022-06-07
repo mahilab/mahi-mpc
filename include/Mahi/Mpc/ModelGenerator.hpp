@@ -2,7 +2,10 @@
 
 #include <casadi/casadi.hpp>
 #include <Mahi/Util.hpp>
-#include <Mahi/Casadi/ModelParameters.hpp>
+#include <Mahi/Mpc/ModelParameters.hpp>
+
+namespace mahi {
+namespace mpc {
 
 class ModelGenerator
 {
@@ -26,3 +29,6 @@ public:
     void save_param_file();
 
 };
+
+} // namespace mpc
+} // namespace mahi

@@ -1,4 +1,4 @@
-#include <Mahi/Casadi/ModelGenerator.hpp>
+#include <Mahi/Mpc/ModelGenerator.hpp>
 #include <Mahi/Util.hpp>
 
 using namespace casadi;

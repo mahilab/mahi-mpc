@@ -5,6 +5,9 @@
 #include <vector>
 #include <string>
 
+namespace mahi {
+namespace mpc {
+
 struct ModelParameters{
     ModelParameters(std::string name_, int num_x_, int num_u_, mahi::util::Time step_size_, size_t num_shooting_nodes_, bool is_linear_, std::vector<double> u_min_ = {}, std::vector<double> u_max_ = {}, std::vector<double> x_min_ = {},  std::vector<double> x_max_ = {});
 
@@ -27,3 +30,6 @@ struct ModelParameters{
 void to_json(mahi::util::json& j, const ModelParameters& p);
 
 void from_json(const mahi::util::json& j, ModelParameters& p);
+
+} // namespace mpc
+} // namespace mahi
