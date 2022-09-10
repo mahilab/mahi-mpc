@@ -5,9 +5,9 @@ namespace mahi {
 namespace mpc {
 
 ModelControl::ModelControl(std::string model_name, std::vector<double> Q, std::vector<double> R, std::vector<double> Rm, casadi::Dict solver_opts):
-m_Q(Q),
-m_R(R),
-m_Rm(Rm),
+m_Q(oneDvec_to_diag(Q)),
+m_R(oneDvec_to_diag(R)),
+m_Rm(oneDvec_to_diag(Rm)),
 m_solver_opts(solver_opts)
 {
     load_model(model_name);
@@ -117,9 +117,9 @@ void ModelControl::calc_u(mahi::util::Time control_time,const std::vector<double
 
     curr_time = control_time;
 
-    for (const auto &q : m_Q) traj.push_back(q);
-    for (const auto &r : m_R) traj.push_back(r);
-    for (const auto &rm : m_Rm) traj.push_back(rm);
+    for (const auto &q  : twoDvec_to_oneDvec(m_Q)) traj.push_back(q);
+    for (const auto &r  : twoDvec_to_oneDvec(m_R)) traj.push_back(r);
+    for (const auto &rm : twoDvec_to_oneDvec(m_Rm)) traj.push_back(rm);
     
     // set A and B if necessary
     if (model_parameters.is_linear){
@@ -197,8 +197,14 @@ ModelControl::ControlResult ModelControl::control_at_time(mahi::util::Time time)
 }
 
 void ModelControl::update_weights(std::vector<double> Q, std::vector<double> R, std::vector<double> Rm){
-    if (!Q.empty()) m_Q = Q;
-    if (!R.empty()) m_R = R;
+    if (!Q.empty())  m_Q  = oneDvec_to_diag(Q);
+    if (!R.empty())  m_R  = oneDvec_to_diag(R);
+    if (!Rm.empty()) m_Rm = oneDvec_to_diag(Rm);
+}
+
+void ModelControl::update_weights(std::vector<std::vector<double>> Q, std::vector<std::vector<double>> R, std::vector<std::vector<double>> Rm){
+    if (!Q.empty())  m_Q  = Q;
+    if (!R.empty())  m_R  = R;
     if (!Rm.empty()) m_Rm = Rm;
 }
 
@@ -206,6 +212,27 @@ void ModelControl::update_control_limits(std::vector<double> u_min, std::vector<
     std::lock_guard<std::mutex> lg(m_control_limits_mutex);
     model_parameters.u_min = u_min;
     model_parameters.u_max = u_max;
+}
+
+std::vector<double> ModelControl::twoDvec_to_oneDvec(std::vector<std::vector<double>> twoD){
+    std::vector<double> oneD;
+    for (const auto &vec : twoD){
+        for (const auto &val : vec){
+            oneD.push_back(val);
+        }
+    }
+    return oneD;
+}
+
+std::vector<double> ModelControl::oneDvec_to_diag(std::vector<double> oneD){
+    std::vector<std::vector<double> twoD;
+    for (size_t i = 0; i < oneD.size(); i++){
+        auto new_vec = std::vector<double>(oneD.size(),0);
+        new_vec[i] = oneD[i];
+        twoD.push_back(new_vec);
+    }
+    
+    return twoD;
 }
 
 } // namespace mpc

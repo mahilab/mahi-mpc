@@ -24,6 +24,7 @@ public:
     };
 
     ModelControl(std::string model_name, std::vector<double> Q= {}, std::vector<double> R = {}, std::vector<double> Rm = {}, casadi::Dict solver_opts = casadi::Dict());
+    ModelControl(std::string model_name, std::vector<std::vector<double>> Q= {{}}, std::vector<std::vector<double>> R = {{}}, std::vector<std::vector<double>> Rm = {{}}, casadi::Dict solver_opts = casadi::Dict());
     ~ModelControl();
 
     ModelParameters model_parameters;
@@ -41,6 +42,8 @@ public:
 
     void update_weights(std::vector<double> Q = {},std::vector<double> R = {},std::vector<double> Rm = {});
 
+    void update_weights(std::vector<std::vector<double>> Q = {{}},std::vector<std::vector<double>> R = {{}},std::vector<std::vector<double>> Rm = {{}});
+
     void update_control_limits(std::vector<double> u_min, std::vector<double> u_max);
 private:
     casadi::Dict m_solver_opts;
@@ -50,9 +53,9 @@ private:
     std::map<std::string, casadi::DM> m_solver_args;
     std::map<std::string, casadi::DM> m_solver_result;
 
-    std::vector<double> m_Q;
-    std::vector<double> m_R;
-    std::vector<double> m_Rm;
+    std::vector<std::vector<double>> m_Q;
+    std::vector<std::vector<double>> m_R;
+    std::vector<std::vector<double>> m_Rm;
 
     casadi::Function get_A;
     casadi::Function get_B;
@@ -75,6 +78,10 @@ private:
     std::atomic<bool> m_done_calcing = true;
 
     void format_outputs(std::vector<double> opt_output);
+
+    std::vector<double> twoDvec_to_oneDvec(std::vector<std::vector<double>> twoD);
+
+    static std::vector<std::vector<double>> oneDvec_to_diag(std::vector<double> oneD);
     
     int m_num_control_inputs_saved = 0;
 };

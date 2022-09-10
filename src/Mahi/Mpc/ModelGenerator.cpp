@@ -147,13 +147,13 @@ void ModelGenerator::create_model(){
     casadi::MX traj = casadi::MX::sym("traj", traj_size); // traj_size
 
     int start_Q  = (int)(m_model_parameters.num_shooting_nodes*m_model_parameters.num_x);
-    int start_R  = start_Q   + m_model_parameters.num_x;
-    int start_Rm = start_R   + m_model_parameters.num_u;
-    int end_Rm   = start_Rm  + m_model_parameters.num_u;
+    int start_R  = start_Q   + m_model_parameters.num_x*m_model_parameters.num_x;
+    int start_Rm = start_R   + m_model_parameters.num_u*m_model_parameters.num_u;
+    int end_Rm   = start_Rm  + m_model_parameters.num_u*m_model_parameters.num_u;
 
-    casadi::MX Q_in  = reshape(traj(casadi::Slice(start_Q,start_R)),m_model_parameters.num_x,1);
-    casadi::MX R_in  = reshape(traj(casadi::Slice(start_R,start_Rm)),m_model_parameters.num_u,1);
-    casadi::MX Rm_in = reshape(traj(casadi::Slice(start_Rm,end_Rm)),m_model_parameters.num_u,1);
+    casadi::MX Q_in  = reshape(traj(casadi::Slice(start_Q,start_R)),m_model_parameters.num_x,m_model_parameters.num_x1);
+    casadi::MX R_in  = reshape(traj(casadi::Slice(start_R,start_Rm)),m_model_parameters.num_u,m_model_parameters.num_u);
+    casadi::MX Rm_in = reshape(traj(casadi::Slice(start_Rm,end_Rm)),m_model_parameters.num_u,m_model_parameters.num_u);
     for (size_t i = 0; i < m_model_parameters.num_x; i++) Q(i,i)   = Q_in(i);
     for (size_t i = 0; i < m_model_parameters.num_u; i++) R(i,i)   = R_in(i);
     for (size_t i = 0; i < m_model_parameters.num_u; i++) Rm(i,i)  = Rm_in(i);
