@@ -224,7 +224,7 @@ std::vector<double> ModelControl::twoDvec_to_oneDvec(std::vector<std::vector<dou
     return oneD;
 }
 
-static std::vector<std::vector<double>> ModelControl::oneDvec_to_diag(std::vector<double> oneD){
+std::vector<std::vector<double>> ModelControl::oneDvec_to_diag(std::vector<double> oneD){
     std::vector<std::vector<double>> twoD;
     for (size_t i = 0; i < oneD.size(); i++){
         auto new_vec = std::vector<double>(oneD.size(),0);

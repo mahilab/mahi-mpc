@@ -24,7 +24,7 @@ public:
     };
 
     ModelControl(std::string model_name, std::vector<double> Q= {}, std::vector<double> R = {}, std::vector<double> Rm = {}, casadi::Dict solver_opts = casadi::Dict());
-    ModelControl(std::string model_name, std::vector<std::vector<double>> Q= {{}}, std::vector<std::vector<double>> R = {{}}, std::vector<std::vector<double>> Rm = {{}}, casadi::Dict solver_opts = casadi::Dict());
+    ModelControl(std::string model_name, std::vector<std::vector<double>> Q, std::vector<std::vector<double>>, std::vector<std::vector<double>> Rm, casadi::Dict solver_opts = casadi::Dict());
     ~ModelControl();
 
     ModelParameters model_parameters;
