@@ -116,10 +116,12 @@ void ModelControl::stop_calc(){m_stop = true;}
 void ModelControl::calc_u(mahi::util::Time control_time,const std::vector<double>& state, const std::vector<double>& control, std::vector<double> traj){
 
     curr_time = control_time;
-
-    for (const auto &q  : twoDvec_to_oneDvec(m_Q)) traj.push_back(q);
-    for (const auto &r  : twoDvec_to_oneDvec(m_R)) traj.push_back(r);
-    for (const auto &rm : twoDvec_to_oneDvec(m_Rm)) traj.push_back(rm);
+    {
+        std::lock_guard<std::mutex> lg(m_weights_mutex);
+        for (const auto &q  : twoDvec_to_oneDvec(m_Q)) traj.push_back(q);
+        for (const auto &r  : twoDvec_to_oneDvec(m_R)) traj.push_back(r);
+        for (const auto &rm : twoDvec_to_oneDvec(m_Rm)) traj.push_back(rm);
+    }
     
     // set A and B if necessary
     if (model_parameters.is_linear){
@@ -197,12 +199,14 @@ ModelControl::ControlResult ModelControl::control_at_time(mahi::util::Time time)
 }
 
 void ModelControl::update_weights(std::vector<double> Q, std::vector<double> R, std::vector<double> Rm){
+    std::lock_guard<std::mutex> lg(m_weights_mutex);
     if (!Q.empty())  m_Q  = oneDvec_to_diag(Q);
     if (!R.empty())  m_R  = oneDvec_to_diag(R);
     if (!Rm.empty()) m_Rm = oneDvec_to_diag(Rm);
 }
 
 void ModelControl::update_weights(std::vector<std::vector<double>> Q, std::vector<std::vector<double>> R, std::vector<std::vector<double>> Rm){
+    std::lock_guard<std::mutex> lg(m_weights_mutex);
     if (!Q.empty())  m_Q  = Q;
     if (!R.empty())  m_R  = R;
     if (!Rm.empty()) m_Rm = Rm;

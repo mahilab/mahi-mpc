@@ -74,6 +74,7 @@ private:
     std::mutex m_state_mutex;
     std::mutex m_output_mutex;
     std::mutex m_control_limits_mutex;
+    std::mutex m_weights_mutex;
 
     std::atomic<bool> m_done_calcing = true;
 

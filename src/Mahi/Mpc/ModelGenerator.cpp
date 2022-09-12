@@ -119,20 +119,15 @@ void ModelGenerator::create_model(){
     // error_vec.resize(num_shooting_nodes)
 
     casadi::MX error = casadi::MX::sym("error",(m_model_parameters.num_x,1));
-    casadi::MX Q = casadi::MX::eye(m_model_parameters.num_x); // weight on positions and velocities
-    casadi::MX R = casadi::MX::eye(m_model_parameters.num_u); // weight on change in control inputs
-    casadi::MX Rm = casadi::MX::eye(m_model_parameters.num_u);// weight on maginutde of control inputs
     
     // Constratin function and bounds
     std::vector<casadi::MX> g_vec;
 
     int traj_size = m_model_parameters.num_shooting_nodes*m_model_parameters.num_x;
 
-
-    traj_size += m_model_parameters.num_x  // Q
-               + m_model_parameters.num_u  // R
-               + m_model_parameters.num_u;  // Rm
-
+    traj_size += m_model_parameters.num_x*m_model_parameters.num_x  // Q
+               + m_model_parameters.num_u*m_model_parameters.num_u  // R
+               + m_model_parameters.num_u*m_model_parameters.num_u;  // Rm
 
     if (m_model_parameters.is_linear){
         traj_size += m_model_parameters.num_x*m_model_parameters.num_x // A
@@ -151,12 +146,9 @@ void ModelGenerator::create_model(){
     int start_Rm = start_R   + m_model_parameters.num_u*m_model_parameters.num_u;
     int end_Rm   = start_Rm  + m_model_parameters.num_u*m_model_parameters.num_u;
 
-    casadi::MX Q_in  = reshape(traj(casadi::Slice(start_Q,start_R)),m_model_parameters.num_x,m_model_parameters.num_x);
-    casadi::MX R_in  = reshape(traj(casadi::Slice(start_R,start_Rm)),m_model_parameters.num_u,m_model_parameters.num_u);
-    casadi::MX Rm_in = reshape(traj(casadi::Slice(start_Rm,end_Rm)),m_model_parameters.num_u,m_model_parameters.num_u);
-    for (size_t i = 0; i < m_model_parameters.num_x; i++) Q(i,i)   = Q_in(i);
-    for (size_t i = 0; i < m_model_parameters.num_u; i++) R(i,i)   = R_in(i);
-    for (size_t i = 0; i < m_model_parameters.num_u; i++) Rm(i,i)  = Rm_in(i);
+    casadi::MX Q  = reshape(traj(casadi::Slice(start_Q,start_R)),m_model_parameters.num_x,m_model_parameters.num_x);
+    casadi::MX R  = reshape(traj(casadi::Slice(start_R,start_Rm)),m_model_parameters.num_u,m_model_parameters.num_u);
+    casadi::MX Rm = reshape(traj(casadi::Slice(start_Rm,end_Rm)),m_model_parameters.num_u,m_model_parameters.num_u);
 
     casadi::MX lin_A;
     casadi::MX lin_B;
