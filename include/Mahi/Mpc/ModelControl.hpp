@@ -45,6 +45,8 @@ public:
     void update_weights(std::vector<std::vector<double>> Q = {{}},std::vector<std::vector<double>> R = {{}},std::vector<std::vector<double>> Rm = {{}});
 
     void update_control_limits(std::vector<double> u_min, std::vector<double> u_max);
+    
+    static std::vector<std::vector<double>> oneDvec_to_diag(std::vector<double> oneD);
 private:
     casadi::Dict m_solver_opts;
     mahi::util::Time curr_time;
@@ -82,7 +84,6 @@ private:
 
     std::vector<double> twoDvec_to_oneDvec(std::vector<std::vector<double>> twoD);
 
-    static std::vector<std::vector<double>> oneDvec_to_diag(std::vector<double> oneD);
     
     int m_num_control_inputs_saved = 0;
 };
