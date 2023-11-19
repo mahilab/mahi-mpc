@@ -24,6 +24,16 @@ ModelParameters::ModelParameters(std::string name_, int num_x_, int num_u_, mahi
         if (u_max.empty()) u_max = std::vector<double>(num_u,10e30);
     }
 
+TrajectoryParameters::TrajectoryParameters(std::string name_t_, int num_x_t_, int num_u_t_, mahi::util::Time step_size_t_, size_t num_shooting_nodes_t_):
+    name_t(name_t_),
+    num_x_t(num_x_t_),
+    num_u_t(num_u_t_),
+    step_size_t(step_size_t_),
+    num_shooting_nodes_t(num_shooting_nodes_t_)
+    {
+        timespan_t = mahi::util::microseconds(step_size_t.as_microseconds()*num_shooting_nodes_t);
+    }
+    
 void to_json(mahi::util::json& j, const ModelParameters& p) {
     j = mahi::util::json{{"name", p.name}, 
                          {"timespan", p.timespan.as_microseconds()}, 

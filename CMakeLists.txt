@@ -41,7 +41,7 @@ set(WITH_OPENMP ON CACHE BOOL "OpenMP will be used" FORCE)
 include(FetchContent)
 FetchContent_Declare(mahi-util GIT_REPOSITORY https://github.com/mahilab/mahi-util.git)
 FetchContent_MakeAvailable(mahi-util)
-FetchContent_Declare(casadi GIT_REPOSITORY https://github.com/casadi/casadi.git)
+FetchContent_Declare(casadi GIT_REPOSITORY https://github.com/casadi/casadi.git GIT_TAG fadc86444f3c7ab824dc3f2d91d4c0cfe7f9dad5)
 FetchContent_MakeAvailable(casadi)
 
 if (MSVC)
@@ -49,6 +49,7 @@ if (MSVC)
 endif()
 
 set(MAHI_MPC_SRC
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/Mahi/Mpc/ModelGenerator.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/Mahi/Mpc/ModelGenerator.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/Mahi/Mpc/ModelParameters.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/Mahi/Mpc/ModelControl.cpp)
