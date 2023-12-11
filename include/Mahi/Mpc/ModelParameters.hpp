@@ -28,7 +28,7 @@ struct ModelParameters{
 };
 
 struct TrajectoryParameters{
-    TrajectoryParameters(std::string name_t_, int num_x_t_, int num_u_t_, mahi::util::Time step_size_t_, size_t num_shooting_nodes_,int dof_, int np_);
+    TrajectoryParameters(std::string name_t_, int num_x_t_, int num_u_t_, mahi::util::Time step_size_t_, size_t num_shooting_nodes_,int dof, int np, std::array<double, 4Ui64> x_min_, std::array<double, 4Ui64> x_max_ );
     TrajectoryParameters() {} ;
 
     std::string name_t;           // name of the model for useful outputs
@@ -37,8 +37,10 @@ struct TrajectoryParameters{
     int num_x_t;               // number of states
     int num_u_t;               // number of control inputs
     int num_shooting_nodes_t;  // number of shooting_ndes
-    int dof_;
-    int np_;
+    int dof;
+    int np;
+    std::array<double, 4Ui64> x_min;
+    std::array<double, 4Ui64> x_max;
 };
 
 void to_json(mahi::util::json& j, const ModelParameters& p);

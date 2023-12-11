@@ -1,8 +1,10 @@
+//#include <MOE/Moe.hpp>
 #include <Mahi/Mpc/TrajectoryGenerator.hpp>
 #include <casadi/casadi.hpp>
 
 using namespace casadi;
 using namespace std;
+//using namespace moe;
 
 namespace mahi {
 namespace mpc {
@@ -13,7 +15,6 @@ TrajectoryGenerator::TrajectoryGenerator(TrajectoryParameters model_parameters, 
     m_x_dot(x_dot),
     m_u(u)
 {
-    
 }
 
 TrajectoryGenerator::~TrajectoryGenerator(){
@@ -23,9 +24,8 @@ TrajectoryGenerator::~TrajectoryGenerator(){
 void TrajectoryGenerator::create_trajectory(){
 
     //mahi::util::print("generating a {}linear model with {} shooting nodes over {} seconds with {} states, and {} control variables", (m_model_parameters.is_linear ? "" : "non"), m_model_parameters.num_shooting_nodes, m_model_parameters.timespan.as_seconds(), m_model_parameters.num_x, m_model_parameters.num_u);
-    int np = 3;
+    int np = 1;
     casadi::SX curr_pos_fun = SX::sym("curr_pos_fun", m_model_parameters.num_x_t);
-    casadi::SX des_pos_fun = SX::sym("des_pos_fun", m_model_parameters.num_x_t);
 
     // nonlinear version
     casadi::SX x_next = m_x + m_x_dot*m_model_parameters.step_size_t.as_seconds();
@@ -37,21 +37,25 @@ void TrajectoryGenerator::create_trajectory(){
 
     std::vector<double> zero_points = {0,0,0,0};
 
-    // if (!std::count(dof.begin(),dof.end(),0)){
-    //     zero_points[0] = -45.0*DEG2RAD;
-    // } 
-    // if ((std::count(dof.begin(),dof.end(),2) || std::count(dof.begin(),dof.end(),3))  && !std::count(dof.begin(),dof.end(),1)){
-    //     std::cout << "Setting Forearm to " << static_cast<double>(user_params.shoulder_location)*-15.0 << " degrees\n";
-    //     zero_points[1] = static_cast<double>(user_params.shoulder_location)*-15.0*DEG2RAD;
-    // }
-    
-    //list of randomized waypoints
-    //std::vector<std::vector<double>> desired_waypoints = get_waypoint_list(waypoint_list_filepath, np, dof, zero_positions);
-
 //data saving vectors
     std::vector<std::vector<double>> data;
     std::vector<double> data_line;
 
+     //   std::array<double, 4> position_max = params.pos_limits_max_;
+
+    std::vector<double> x_min, x_max;
+    for(int i = 0; i<=m_model_parameters.dof; i++){
+    x_min.push_back(m_model_parameters.x_min[i]);
+    x_max.push_back(m_model_parameters.x_max[i]);
+    }
+
+    for(int i = 0; i<=m_model_parameters.dof; i++){
+    x_min.push_back(-10*mahi::util::RAD2DEG);
+    x_max.push_back(10*mahi::util::RAD2DEG);
+    }
+
+    std::vector<double> u_min(m_model_parameters.num_u_t,0);  
+    std::vector<double> u_max(m_model_parameters.num_u_t,1);  
 
     for(int i = 0; i<=np; i++ ){
 
@@ -66,18 +70,13 @@ void TrajectoryGenerator::create_trajectory(){
     std::vector<double> xf_min(m_model_parameters.num_x_t,-casadi::inf);
     std::vector<double> xf_max(m_model_parameters.num_x_t,casadi::inf);
 
-    std::vector<double> u_min(m_model_parameters.num_u_t,-10e30);  
-    std::vector<double> u_max(m_model_parameters.num_u_t,-10e30);  
-    std::vector<double> x_min(m_model_parameters.num_x_t,-10e30);  
-    std::vector<double> x_max(m_model_parameters.num_x_t,-10e30);  
-
     // inital condition for state. This is essentially saying that we start at state of 0 for both position and velocity.
     //Loop here - need to pull in the csv that has randomized setpoints.
 
-    // if(i == 0){
-    // xf_min = desired_waypoints[i];
-    // xf_max = desired_waypoints[i];
-    // }
+    //if(i == 0){
+    xf_min = {-70.0 * util::DEG2RAD,0};// -70* util::DEG2RAD, 0, 0};
+    xf_max = {-70.0 *util::DEG2RAD, 0};// 70* util::DEG2RAD, 0, 0}; // desired_waypoints[i+1];
+  //  }
     // else{
     // x0_min = desired_waypoints[i];
     // x0_max = desired_waypoints[i];
@@ -85,8 +84,7 @@ void TrajectoryGenerator::create_trajectory(){
     // xf_min = desired_waypoints[i+1];
     // xf_max = desired_waypoints[i+1];
     // }
-// std::cout<<x0_min<<std::endl;
-// std::cout<<xf_min<<std::endl;
+
     // declare a variable vector to use in NLP
     casadi::MX V = casadi::MX::sym("V",NV);
 
@@ -157,10 +155,15 @@ void TrajectoryGenerator::create_trajectory(){
         
         // Save continuity constraints
         g.push_back(current_state-X[k+1]);
-        auto desired_state = traj.nz(casadi::Slice(k*static_cast<int>(m_model_parameters.num_x_t),(k+1)*static_cast<int>(m_model_parameters.num_x_t)));
 
         // Add objective function contribution on change of input
-        J += mtimes(U[k],U[k]);
+        //J += mtimes(U[k],U[k]);
+        MX temp_J, averaged_J_node;
+        for(int j = 0; j<=m_model_parameters.num_u_t; j++){
+             temp_J += mtimes(U[k](j),U[k](j));
+        }
+        averaged_J_node = temp_J/m_model_parameters.num_u_t;
+        J += averaged_J_node;
     }
 
     // NLP
@@ -183,47 +186,47 @@ void TrajectoryGenerator::create_trajectory(){
     res = m_solver(arg);
     // Optimal solution of the NLP
     std::vector<double> V_opt(res.at("x"));
-    for(int k; k<=m_model_parameters.np_; k++){
-            //states at node
-            for (int i = 0; i < m_model_parameters.num_x_t; i++) data_line.push_back(V_opt[k*(m_model_parameters.num_x_t+m_model_parameters.num_u_t)+i]);//[) ;
-            //control at node
-            for (int i = 0; i < m_model_parameters.num_x_t; i++) data_line.push_back(V_opt[k*(m_model_parameters.num_x_t+m_model_parameters.num_u_t)+i+m_model_parameters.num_x_t]);
-            data.push_back(data_line);
-    }
-    } 
+    std::cout<<V_opt<<std::endl;
+//     for(int k = 0; k<=m_model_parameters.np_; k++){
+//             //states at node
+//             for (int i = 0; i < m_model_parameters.num_x_t; i++) data_line.push_back(V_opt[k*(m_model_parameters.num_x_t+m_model_parameters.num_u_t)+i]);//[) ;
+//             //control at node
+//             for (int i = 0; i < m_model_parameters.num_x_t; i++) data_line.push_back(V_opt[k*(m_model_parameters.num_x_t+m_model_parameters.num_u_t)+i+m_model_parameters.num_x_t]);
+//             data.push_back(data_line);
+//     }
+//    //
+//       // data saving information
+//     std::vector<std::string> header = {"Time (s)", 
+//                                     "EFE ref (rad)",   "FPS ref (rad)",   "WFE ref (rad)",   "WRU ref (rad)",
+//                                     "EFE ref (rad/s)", "FPS ref (rad/s)", "WFE ref (rad/s)", "WRU ref (rad/s)"};
+//     mahi::util::Timestamp ts;
+//     std::string save_filepath = "C:/Git/fes-exo-traj-opt/deidentified_data/S" + m_model_parameters.name_t + "/optimized_trajectory" + ts.yyyy_mm_dd_hh_mm_ss();
+//     std::cout << save_filepath << std::endl;
 
-      // data saving information
-    std::vector<std::string> header = {"Time (s)", 
-                                         "EFE ref (rad)",   "FPS ref (rad)",   "WFE ref (rad)",   "WRU ref (rad)",
-                                       "EFE ref (rad/s)", "FPS ref (rad/s)", "WFE ref (rad/s)", "WRU ref (rad/s)"};
-    mahi::util::Timestamp ts;
-    std::string save_filepath = "C:/Git/fes-exo-traj-opt/deidentified_data/S" + m_model_parameters.name_t + "/optimized_trajectory" + ts.yyyy_mm_dd_hh_mm_ss();
-    std::cout << save_filepath << std::endl;
-
-    mahi::util::csv_write_row(save_filepath + ".csv",header);
-    mahi::util::csv_append_rows(save_filepath + ".csv",data);
+//     mahi::util::csv_write_row(save_filepath + ".csv",header);
+//     mahi::util::csv_append_rows(save_filepath + ".csv",data);
 
 }
 
-std::vector<std::vector<double>> get_waypoint_list(std::string traj_filepath, int n_rows, std::vector<int> dof, std::vector<double> zero_positions){
-    std::vector<std::vector<double>> file_data(n_rows, std::vector<double>(dof.size()));
-    mahi::util::csv_read_rows(traj_filepath, file_data, 1, 0); 
+// std::vector<std::vector<double>> get_waypoint_list(std::string traj_filepath, int n_rows, std::vector<int> dof, std::vector<double> zero_positions){
+//     std::vector<std::vector<double>> file_data(n_rows, std::vector<double>(dof.size()));
+//     mahi::util::csv_read_rows(traj_filepath, file_data, 1, 0); 
 
-    //std::vector<mahi::robo::WayPoint> traj_waypoints;
-    for (const auto &waypoint : file_data){
-        std::vector<std::vector<double>> waypoint_list;
-        std::vector<double> positions(waypoint.begin()+1,waypoint.end());
-        for (size_t i = 0; i < positions.size(); i++){
-            positions[i]*= mahi::util::DEG2RAD;    
-            if (!std::count(dof.begin(),dof.end(),i)){
-                positions[i] = zero_positions[i];
-            }
-        waypoint_list.push_back(positions);
-        } 
-    return waypoint_list;
-    }
+//     //std::vector<mahi::robo::WayPoint> traj_waypoints;
+//     for (const auto &waypoint : file_data){
+//         std::vector<std::vector<double>> waypoint_list;
+//         std::vector<double> positions(waypoint.begin()+1,waypoint.end());
+//         for (size_t i = 0; i < positions.size(); i++){
+//             positions[i]*= mahi::util::DEG2RAD;    
+//             if (!std::count(dof.begin(),dof.end(),i)){
+//                 positions[i] = zero_positions[i];
+//             }
+//         waypoint_list.push_back(positions);
+//         } 
+//     return waypoint_list;
+//     }
     
-}
+// }
 
 // void ModelGenerator::generate_c_code(){
 //     m_c_file_filepath = m_model_parameters.name + ".c";
@@ -249,6 +252,6 @@ std::vector<std::vector<double>> get_waypoint_list(std::string traj_filepath, in
 //     if (file1.is_open())
 //         file1 << j;
 //     file1.close();
-
+}
 } // namespace mpc
 } // namespace mahi

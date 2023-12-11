@@ -79,7 +79,13 @@
         "variant": "cpp",
         "string_view": "cpp",
         "xmemory0": "cpp",
-        "core": "cpp"
+        "core": "cpp",
+        "bit": "cpp",
+        "bitset": "cpp",
+        "charconv": "cpp",
+        "format": "cpp",
+        "queue": "cpp",
+        "stop_token": "cpp"
     },
     "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools"
 }
