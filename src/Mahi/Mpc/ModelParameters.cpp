@@ -24,7 +24,7 @@ ModelParameters::ModelParameters(std::string name_, int num_x_, int num_u_, mahi
         if (u_max.empty()) u_max = std::vector<double>(num_u,10e30);
     }
 
-TrajectoryParameters::TrajectoryParameters(std::string name_t_, int num_x_t_, int num_u_t_, mahi::util::Time step_size_t_, size_t num_shooting_nodes_t_, std::vector<int> dof_, int np_, std::array<double, 4Ui64> x_min_, std::array<double, 4Ui64> x_max_,  std::vector<std::vector<double>> waypoint_list_ ):
+TrajectoryParameters::TrajectoryParameters(std::string name_t_, int num_x_t_, int num_u_t_, mahi::util::Time step_size_t_, size_t num_shooting_nodes_t_, std::vector<int> dof_, int np_, std::array<double, 4Ui64> x_min_, std::array<double, 4Ui64> x_max_,  std::vector<std::vector<double>> waypoint_list_,  std::vector<bool> muscles_enabled_ ):
     name_t(name_t_),
     num_x_t(num_x_t_),
     num_u_t(num_u_t_),
@@ -34,7 +34,8 @@ TrajectoryParameters::TrajectoryParameters(std::string name_t_, int num_x_t_, in
     np(np_),
     x_min(x_min_),
     x_max(x_max_),
-    waypoint_list(waypoint_list_) 
+    waypoint_list(waypoint_list_),
+    muscles_enabled(muscles_enabled_) 
     {
         timespan_t = mahi::util::microseconds(step_size_t.as_microseconds()*num_shooting_nodes_t);
     }
