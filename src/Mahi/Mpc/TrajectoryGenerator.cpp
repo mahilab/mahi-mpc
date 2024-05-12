@@ -1,3 +1,4 @@
+
 //#include <MOE/Moe.hpp>
 #include <Mahi/Mpc/TrajectoryGenerator.hpp>
 #include <casadi/casadi.hpp>
@@ -150,24 +151,12 @@ void TrajectoryGenerator::create_trajectory(){
 
     int start_u_init     = end_Rm;
     int end_u_init       = start_u_init + m_model_parameters.num_u_t;
-    casadi::MX u_init_in  = reshape(params_sym(casadi::Slice(start_u_init,end_u_init)),m_model_parameters.num_u_t,1);   
-    
-    //Objective function initialization
-        casadi::MX J = 0;
-        double current_t = 0.0;
-    //Constraint function and bounds
-        std::vector<casadi::MX> g;
-    //initializing error vector    
-        casadi::MX error = casadi::MX::sym("error",(m_model_parameters.num_x_t,1)); 
-        std::vector<double> params; 
-    //full trajectory V
-        std::vector<casadi::MX> V_all;
-        std::vector<double> v_min,v_max,v_init;
+    casadi::MX u_init_in  = reshape(params_sym(casadi::Slice(start_u_init,end_u_init)),m_model_parameters.num_u_t,1);    
 
     
  
 //Loop for each local setpoint
-   for(int i = 0; i<15; i++ ){
+   for(int i = 0; i<np; i++ ){
     //Determine time span and shooting nodes required for setpoint
         double time_span = m_model_parameters.waypoint_list[i+1][0] - m_model_parameters.waypoint_list[i][0];
         double num_shooting_nodes_t = time_span/m_model_parameters.step_size_t.as_seconds();
@@ -188,7 +177,7 @@ void TrajectoryGenerator::create_trajectory(){
     //Declare a variable vector to use in NLP
         casadi::MX V = casadi::MX::sym("V",NV);
     //NLP variable bounds and initial guesses
-        
+        std::vector<double> v_min,v_max,v_init;
     //Offset in V --- this is like a counter variable
         int offset=0;
 
@@ -223,7 +212,13 @@ void TrajectoryGenerator::create_trajectory(){
         v_init.insert(v_init.end(), x_init.begin(), x_init.end());
         offset += m_model_parameters.num_x_t;
 
-        V_all.push_back(V);
+    //Objective function initialization
+        casadi::MX J = 0;
+        double current_t = 0.0;
+    //Constraint function and bounds
+        std::vector<casadi::MX> g;
+    //initializing error vector    
+        casadi::MX error = casadi::MX::sym("error",(m_model_parameters.num_x_t,1));
 
     //Loop over shooting nodes for calculating dynamics and cost function
         for(int k=0; k<num_shooting_nodes_t; ++k){
@@ -253,6 +248,7 @@ void TrajectoryGenerator::create_trajectory(){
             }  
         }
 
+        std::vector<double> params; 
         for(int k = 1; k<m_model_parameters.waypoint_list[i].size(); k++){
             params.push_back(m_model_parameters.waypoint_list[i+1][k]);
         }  
@@ -276,15 +272,11 @@ void TrajectoryGenerator::create_trajectory(){
         for(int i = 0; i<u_init.size(); i++){
                 params.push_back(u_init[i]);   // Q
         } 
-           
-    } // Waypoint list size - Number of IPOPT Iterations
-//THIS IS WHERE I WANT THE WAYPOINT LOOP TO END        
         
     //Vertically concatenating dynamic constraints
         casadi::MX g_vec = casadi::MX::vertcat(g);
-        casadi::MX v_all_vec = casadi::MX::vertcat(V_all);
     // NLP formulation
-        casadi::MXDict nlp = {{"x", v_all_vec}, {"f", J}, {"g", g_vec}, {"p", params_sym}};
+        casadi::MXDict nlp = {{"x", V}, {"f", J}, {"g", g_vec}, {"p", params_sym}};
     //Default opts for IPOPT
         casadi::Dict opts;
     //Create an NLP solver and buffers
@@ -305,23 +297,24 @@ void TrajectoryGenerator::create_trajectory(){
         std::vector<double> V_opt(res.at("x"));
    
 // Data pushback for shooting nodes
-        // for(int k = 0; k<num_shooting_nodes_t;k++){
-        //     data_line.clear();
-        //     //states at node
-        //     data_line.push_back(m_model_parameters.step_size_t.as_seconds()*k+ m_model_parameters.waypoint_list[i][0]);
-        //     for (int i = 0; i < m_model_parameters.num_x_t; i++) data_line.push_back(mahi::util::RAD2DEG*V_opt[(k*(m_model_parameters.num_x_t+m_model_parameters.num_u_t)+i)]);//[) ;
-        //     //control at node
-        //     for (int i = 0; i < m_model_parameters.num_u_t; i++) data_line.push_back(V_opt[k*(m_model_parameters.num_x_t+m_model_parameters.num_u_t)+i+m_model_parameters.num_x_t]);
-        //     data.push_back(data_line);   
-        // }
+        for(int k = 0; k<num_shooting_nodes_t;k++){
+            data_line.clear();
+            //states at node
+            data_line.push_back(m_model_parameters.step_size_t.as_seconds()*k+ m_model_parameters.waypoint_list[i][0]);
+            for (int i = 0; i < m_model_parameters.num_x_t; i++) data_line.push_back(mahi::util::RAD2DEG*V_opt[(k*(m_model_parameters.num_x_t+m_model_parameters.num_u_t)+i)]);//[) ;
+            //control at node
+            for (int i = 0; i < m_model_parameters.num_u_t; i++) data_line.push_back(V_opt[k*(m_model_parameters.num_x_t+m_model_parameters.num_u_t)+i+m_model_parameters.num_x_t]);
+            data.push_back(data_line);   
+        }
         
 
-        // std::vector<double> data_last_timestep= data.back();
-        // std::vector<double> previous_u;
-        // for (int i = data_last_timestep.size()-1; i >= (data_last_timestep.size()-m_model_parameters.num_u_t); i--) previous_u.push_back(data_last_timestep[i]);
-        // reverse(previous_u.begin(),previous_u.end());
-        // u_init = previous_u;
- 
+        std::vector<double> data_last_timestep= data.back();
+        std::vector<double> previous_u;
+        for (int i = data_last_timestep.size()-1; i >= (data_last_timestep.size()-m_model_parameters.num_u_t); i--) previous_u.push_back(data_last_timestep[i]);
+        reverse(previous_u.begin(),previous_u.end());
+        u_init = previous_u;
+    
+    } // Waypoint list size - Number of IPOPT Iterations
 
 //Data saving         
     std::vector<std::string> header_pos_names = {"EFE ref (deg)", "FPS ref (deg)", "WFE ref (deg)", "WRU ref (deg)"};
