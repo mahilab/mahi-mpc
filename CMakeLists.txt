@@ -51,7 +51,6 @@ endif()
 set(MAHI_MPC_SRC
         ${CMAKE_CURRENT_SOURCE_DIR}/src/Mahi/Mpc/ModelGenerator.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/Mahi/Mpc/TrajectoryGenerator.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/Mahi/Mpc/WaypointGenerator.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/Mahi/Mpc/ModelParameters.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/Mahi/Mpc/ModelControl.cpp)
 
