@@ -69,7 +69,7 @@ void TrajectoryGenerator::create_trajectory(){
 
     mahi::util::json mpc_params;
 
-    std::string mpc_params_filepath = "C:/Git/fes-exo-traj-opt/trajectories/gains.csv";
+    std::string mpc_params_filepath = "C:/Git/fes-exo-traj-opt-error/trajectories/gains.csv";
 
 
     std::vector<std::vector<double>> mpc_file_data(1, std::vector<double>(24));
@@ -122,32 +122,33 @@ void TrajectoryGenerator::create_trajectory(){
 // create a vector of symbolic variables that we will import. This includes x_init, desired cost function weights(Q,R,Rm if desired), and u_init  
     int params_size_sym = 0;
     params_size_sym += m_model_parameters.num_x_t;
-    if (std::count(m_cf_params.begin(),m_cf_params.end(),0)) params_size_sym += m_model_parameters.num_x_t*m_model_parameters.num_x_t;  // Q
-    if (std::count(m_cf_params.begin(),m_cf_params.end(),1)) params_size_sym += m_model_parameters.num_u_t*m_model_parameters.num_u_t;  // R
-    if (std::count(m_cf_params.begin(),m_cf_params.end(),2)) params_size_sym += m_model_parameters.num_u_t*m_model_parameters.num_u_t; // Rm
+    if (std::count(m_cf_params.begin(),m_cf_params.end(),0)||std::count(m_cf_params.begin(),m_cf_params.end(),3)||std::count(m_cf_params.begin(),m_cf_params.end(),4)||std::count(m_cf_params.begin(),m_cf_params.end(),6)) params_size_sym += m_model_parameters.num_x_t*m_model_parameters.num_x_t;  // Q
+    if (std::count(m_cf_params.begin(),m_cf_params.end(),1)||std::count(m_cf_params.begin(),m_cf_params.end(),3)||std::count(m_cf_params.begin(),m_cf_params.end(),5)||std::count(m_cf_params.begin(),m_cf_params.end(),6)) params_size_sym += m_model_parameters.num_u_t*m_model_parameters.num_u_t;  // R
+    if (std::count(m_cf_params.begin(),m_cf_params.end(),2)||std::count(m_cf_params.begin(),m_cf_params.end(),4)||std::count(m_cf_params.begin(),m_cf_params.end(),5)||std::count(m_cf_params.begin(),m_cf_params.end(),6)) params_size_sym += m_model_parameters.num_u_t*m_model_parameters.num_u_t; // Rm
+std::cout<<params_size_sym;
     params_size_sym += m_model_parameters.num_u_t;  
 
 //Determine where symbolic parameters lie in vector and slice 
     int start_Q =  (int)(m_model_parameters.num_x_t);  
     int start_R = start_Q; int start_Rm = start_Q; int end_Rm = start_Q;
 
-    if (std::count(m_cf_params.begin(),m_cf_params.end(),0)){
+    if (std::count(m_cf_params.begin(),m_cf_params.end(),0)||std::count(m_cf_params.begin(),m_cf_params.end(),3)||std::count(m_cf_params.begin(),m_cf_params.end(),4)||std::count(m_cf_params.begin(),m_cf_params.end(),6)){
         start_R += m_model_parameters.num_x_t*m_model_parameters.num_x_t;
         start_Rm = start_R;
         end_Rm = start_Rm;
     }
-    if (std::count(m_cf_params.begin(),m_cf_params.end(),1)){
+    if (std::count(m_cf_params.begin(),m_cf_params.end(),1)||std::count(m_cf_params.begin(),m_cf_params.end(),3)||std::count(m_cf_params.begin(),m_cf_params.end(),5)||std::count(m_cf_params.begin(),m_cf_params.end(),6)){
         start_Rm += m_model_parameters.num_x_t*m_model_parameters.num_x_t;
         end_Rm = start_Rm;
     }
-    if (std::count(m_cf_params.begin(),m_cf_params.end(),2)){
+    if (std::count(m_cf_params.begin(),m_cf_params.end(),2)||std::count(m_cf_params.begin(),m_cf_params.end(),4)||std::count(m_cf_params.begin(),m_cf_params.end(),5)||std::count(m_cf_params.begin(),m_cf_params.end(),6)){
         end_Rm   +=  m_model_parameters.num_u_t*m_model_parameters.num_u_t;
     }
     casadi::MX params_sym = casadi::MX::sym("params_sym",params_size_sym);
     casadi::MX Q, R, Rm; 
-    if (std::count(m_cf_params.begin(),m_cf_params.end(),0)) Q  = reshape(params_sym(casadi::Slice(start_Q,start_R)),m_model_parameters.num_x_t,m_model_parameters.num_x_t);
-    if (std::count(m_cf_params.begin(),m_cf_params.end(),1)) R  = reshape(params_sym(casadi::Slice(start_R,start_Rm)),m_model_parameters.num_u_t,m_model_parameters.num_u_t);
-    if (std::count(m_cf_params.begin(),m_cf_params.end(),2)) Rm = reshape(params_sym(casadi::Slice(start_Rm,end_Rm)),m_model_parameters.num_u_t,m_model_parameters.num_u_t);
+    if (std::count(m_cf_params.begin(),m_cf_params.end(),0)||std::count(m_cf_params.begin(),m_cf_params.end(),3)||std::count(m_cf_params.begin(),m_cf_params.end(),4)||std::count(m_cf_params.begin(),m_cf_params.end(),6)) Q  = reshape(params_sym(casadi::Slice(start_Q,start_R)),m_model_parameters.num_x_t,m_model_parameters.num_x_t);
+    if (std::count(m_cf_params.begin(),m_cf_params.end(),1)||std::count(m_cf_params.begin(),m_cf_params.end(),3)||std::count(m_cf_params.begin(),m_cf_params.end(),5)||std::count(m_cf_params.begin(),m_cf_params.end(),6)) R  = reshape(params_sym(casadi::Slice(start_R,start_Rm)),m_model_parameters.num_u_t,m_model_parameters.num_u_t);
+    if (std::count(m_cf_params.begin(),m_cf_params.end(),2)||std::count(m_cf_params.begin(),m_cf_params.end(),4)||std::count(m_cf_params.begin(),m_cf_params.end(),5)||std::count(m_cf_params.begin(),m_cf_params.end(),6)) Rm = reshape(params_sym(casadi::Slice(start_Rm,end_Rm)),m_model_parameters.num_u_t,m_model_parameters.num_u_t);
 
     int start_u_init     = end_Rm;
     int end_u_init       = start_u_init + m_model_parameters.num_u_t;
@@ -237,13 +238,13 @@ void TrajectoryGenerator::create_trajectory(){
             auto delta_U = U[k] - ((k == 0)? u_init_in : U[k-1]); //conditional operator
         
 //cost function contributions       
-            if (std::count(m_cf_params.begin(),m_cf_params.end(),0)){
+            if (std::count(m_cf_params.begin(),m_cf_params.end(),0)||std::count(m_cf_params.begin(),m_cf_params.end(),3)||std::count(m_cf_params.begin(),m_cf_params.end(),4)||std::count(m_cf_params.begin(),m_cf_params.end(),6)){
                 J += mtimes(error.T(),mtimes(Q,error));    // Q
             }
-            if (std::count(m_cf_params.begin(),m_cf_params.end(),1)){
+            if (std::count(m_cf_params.begin(),m_cf_params.end(),1)||std::count(m_cf_params.begin(),m_cf_params.end(),3)||std::count(m_cf_params.begin(),m_cf_params.end(),5)||std::count(m_cf_params.begin(),m_cf_params.end(),6)){
                 J += mtimes(delta_U.T(),mtimes(R,delta_U));  // R
             }
-            if (std::count(m_cf_params.begin(),m_cf_params.end(),2)){
+            if (std::count(m_cf_params.begin(),m_cf_params.end(),2)||std::count(m_cf_params.begin(),m_cf_params.end(),4)||std::count(m_cf_params.begin(),m_cf_params.end(),5)||std::count(m_cf_params.begin(),m_cf_params.end(),6)){
                 J += mtimes(U[k].T(),mtimes(Rm,U[k])); //Rm
             }  
         }
@@ -253,17 +254,17 @@ void TrajectoryGenerator::create_trajectory(){
             params.push_back(m_model_parameters.waypoint_list[i+1][k]);
         }  
 //Increasing traj_size based on cost function parameters
-        if (std::count(m_cf_params.begin(),m_cf_params.end(),0)){
+        if (std::count(m_cf_params.begin(),m_cf_params.end(),0)||std::count(m_cf_params.begin(),m_cf_params.end(),3)||std::count(m_cf_params.begin(),m_cf_params.end(),4)||std::count(m_cf_params.begin(),m_cf_params.end(),6)){
             for(int i = 0; i<Q_.size(); i++){
                 params.push_back(Q_[i]);    // Q
             }
         }
-        if (std::count(m_cf_params.begin(),m_cf_params.end(),1)){
+        if (std::count(m_cf_params.begin(),m_cf_params.end(),1)||std::count(m_cf_params.begin(),m_cf_params.end(),3)||std::count(m_cf_params.begin(),m_cf_params.end(),5)||std::count(m_cf_params.begin(),m_cf_params.end(),6)){
             for(int i = 0; i<R_.size(); i++){
                 params.push_back(R_[i]);    // Q
             } // R
         }
-        if (std::count(m_cf_params.begin(),m_cf_params.end(),2)){
+        if (std::count(m_cf_params.begin(),m_cf_params.end(),2)||std::count(m_cf_params.begin(),m_cf_params.end(),4)||std::count(m_cf_params.begin(),m_cf_params.end(),5)||std::count(m_cf_params.begin(),m_cf_params.end(),6)){
             for(int i = 0; i<Rm_.size(); i++){
                 params.push_back(Rm_[i]);    // Q
             }  // Rm
@@ -336,7 +337,7 @@ void TrajectoryGenerator::create_trajectory(){
     std::cout<<R_in<<std::endl;
     std::cout<<Rm_in<<std::endl;
     mahi::util::Timestamp ts;
-    std::string save_filepath = "C:/Git/fes-exo-traj-opt/deidentified_data/" + m_model_parameters.name_t + "/Trajectories/" + dof_string + "_optimized_trajectory/" + cf_string + "/"+ std::to_string(trial_num) +"_"+ ts.yyyy_mm_dd_hh_mm_ss();
+    std::string save_filepath = "C:/Git/fes-exo-traj-opt-error/deidentified_data/" + m_model_parameters.name_t + "/Trajectories/" + dof_string + "_optimized_trajectory/" + cf_string + "/"+ std::to_string(trial_num) +"_"+ ts.yyyy_mm_dd_hh_mm_ss();
     std::cout << save_filepath << std::endl;
     mahi::util::csv_write_row(save_filepath + ".csv",header); 
     mahi::util::csv_append_rows(save_filepath + ".csv",data);     
