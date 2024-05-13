@@ -337,7 +337,7 @@ std::cout<<params_size_sym;
     std::cout<<R_in<<std::endl;
     std::cout<<Rm_in<<std::endl;
     mahi::util::Timestamp ts;
-    std::string save_filepath = "C:/Git/fes-exo-traj-opt-error/deidentified_data/" + m_model_parameters.name_t + "/Trajectories/" + dof_string + "_optimized_trajectory/" + cf_string + "/"+ std::to_string(trial_num) +"_"+ ts.yyyy_mm_dd_hh_mm_ss();
+    std::string save_filepath = "C:/Git/fes-exo-traj-opt/deidentified_data/" + m_model_parameters.name_t + "/Trajectories/" + dof_string + "_optimized_trajectory/" + cf_string + "/"+ std::to_string(trial_num) +"_"+ ts.yyyy_mm_dd_hh_mm_ss();
     std::cout << save_filepath << std::endl;
     mahi::util::csv_write_row(save_filepath + ".csv",header); 
     mahi::util::csv_append_rows(save_filepath + ".csv",data);     
