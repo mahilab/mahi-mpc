@@ -1,5 +1,3 @@
-
-//#include <MOE/Moe.hpp>
 #include <Mahi/Mpc/TrajectoryGenerator.hpp>
 #include <casadi/casadi.hpp>
 #include <Mahi/Util.hpp>
@@ -69,13 +67,12 @@ void TrajectoryGenerator::create_trajectory(){
 
     mahi::util::json mpc_params;
 
-    std::string mpc_params_filepath = "C:/Git/fes-exo-traj-opt-error/trajectories/gains.csv";
-
+    std::string mpc_params_filepath = "C:/Git/fes-exo-traj-opt/trajectories/gains.csv";
 
     std::vector<std::vector<double>> mpc_file_data(1, std::vector<double>(24));
     mahi::util::csv_read_rows(mpc_params_filepath, mpc_file_data, 1+ trial_num, 0); 
     for (auto &waypoint : mpc_file_data){
-        for(int i =0; i<=7;i++){
+        for(int i = 0; i<=7;i++){
             Q_in.push_back(waypoint[i]);
             R_in.push_back(waypoint[i+8]);
             Rm_in.push_back(waypoint[i+16]);
@@ -125,7 +122,6 @@ void TrajectoryGenerator::create_trajectory(){
     if (std::count(m_cf_params.begin(),m_cf_params.end(),0)||std::count(m_cf_params.begin(),m_cf_params.end(),3)||std::count(m_cf_params.begin(),m_cf_params.end(),4)||std::count(m_cf_params.begin(),m_cf_params.end(),6)) params_size_sym += m_model_parameters.num_x_t*m_model_parameters.num_x_t;  // Q
     if (std::count(m_cf_params.begin(),m_cf_params.end(),1)||std::count(m_cf_params.begin(),m_cf_params.end(),3)||std::count(m_cf_params.begin(),m_cf_params.end(),5)||std::count(m_cf_params.begin(),m_cf_params.end(),6)) params_size_sym += m_model_parameters.num_u_t*m_model_parameters.num_u_t;  // R
     if (std::count(m_cf_params.begin(),m_cf_params.end(),2)||std::count(m_cf_params.begin(),m_cf_params.end(),4)||std::count(m_cf_params.begin(),m_cf_params.end(),5)||std::count(m_cf_params.begin(),m_cf_params.end(),6)) params_size_sym += m_model_parameters.num_u_t*m_model_parameters.num_u_t; // Rm
-std::cout<<params_size_sym;
     params_size_sym += m_model_parameters.num_u_t;  
 
 //Determine where symbolic parameters lie in vector and slice 
@@ -154,38 +150,39 @@ std::cout<<params_size_sym;
     int end_u_init       = start_u_init + m_model_parameters.num_u_t;
     casadi::MX u_init_in  = reshape(params_sym(casadi::Slice(start_u_init,end_u_init)),m_model_parameters.num_u_t,1);    
 
-    
- 
-//Loop for each local setpoint
+    //Loop for each local setpoint
    for(int i = 0; i<np; i++ ){
-    //Determine time span and shooting nodes required for setpoint
+        //Determine time span and shooting nodes required for setpoint
         double time_span = m_model_parameters.waypoint_list[i+1][0] - m_model_parameters.waypoint_list[i][0];
         double num_shooting_nodes_t = time_span/m_model_parameters.step_size_t.as_seconds();
-    //Initializing initial and terminal state constraints and initial guess
+
+        //Initializing initial and terminal state constraints and initial guess
         std::vector<double> x0_min = m_model_parameters.waypoint_list[i];
         std::vector<double> xf_min = m_model_parameters.waypoint_list[i+1];
-    //Erase timestamp from setpoint
+
+        //Erase timestamp from setpoint
         x0_min.erase(x0_min.begin());
         xf_min.erase(xf_min.begin());
 
-    //These likely could/ should be pointers for computation efficiency
+        //These likely could/ should be pointers for computation efficiency
         std::vector<double> x_init = x0_min;
         std::vector<double> x0_max = x0_min;
         std::vector<double> xf_max = xf_min;
 
-    //Total number of variables (number of states * (time steps+1)  +  number of control inputs * time steps 
+        //Total number of variables (number of states * (time steps+1)  +  number of control inputs * time steps 
         int NV = m_model_parameters.num_x_t*(num_shooting_nodes_t+1) + m_model_parameters.num_u_t*num_shooting_nodes_t;      
-    //Declare a variable vector to use in NLP
+        //Declare a variable vector to use in NLP
         casadi::MX V = casadi::MX::sym("V",NV);
-    //NLP variable bounds and initial guesses
+        //NLP variable bounds and initial guesses
         std::vector<double> v_min,v_max,v_init;
-    //Offset in V --- this is like a counter variable
+        //Offset in V --- this is like a counter variable
         int offset=0;
 
-    //Declare vectors for the state and control at each node, insert state and control bounds
+        //Declare vectors for the state and control at each node, insert state and control bounds
         std::vector<casadi::MX> X, U;
-    //Loop through shooting nodes from initial state to desired states
-        for(int k=0; k<num_shooting_nodes_t; ++k){
+
+        //Loop through shooting nodes from initial state to desired states
+       for(int k=0; k<num_shooting_nodes_t; ++k){
         //Local state
             X.push_back(V.nz(casadi::Slice(offset,offset+static_cast<int>(m_model_parameters.num_x_t))));
             if(k==0){
@@ -198,7 +195,7 @@ std::cout<<params_size_sym;
             }
             v_init.insert(v_init.end(), x_init.begin(), x_init.end());
             offset += m_model_parameters.num_x_t;
-        //Local Control
+            //Local Control
             U.push_back(V.nz(casadi::Slice(offset,offset+static_cast<int>(m_model_parameters.num_u_t))));
             v_min.insert(v_min.end(), u_min.begin(), u_min.end());
             v_max.insert(v_max.end(), u_max.begin(), u_max.end());
@@ -206,29 +203,29 @@ std::cout<<params_size_sym;
             offset += m_model_parameters.num_u_t;
         }
 
-    //State at end
+        //State at end
         X.push_back(V.nz(casadi::Slice(offset,offset+static_cast<int>(m_model_parameters.num_x_t))));
         v_min.insert(v_min.end(), xf_min.begin(), xf_min.end());
         v_max.insert(v_max.end(), xf_max.begin(), xf_max.end());
         v_init.insert(v_init.end(), x_init.begin(), x_init.end());
         offset += m_model_parameters.num_x_t;
 
-    //Objective function initialization
+        //Objective function initialization
         casadi::MX J = 0;
         double current_t = 0.0;
-    //Constraint function and bounds
+        //Constraint function and bounds
         std::vector<casadi::MX> g;
-    //initializing error vector    
+        //initializing error vector    
         casadi::MX error = casadi::MX::sym("error",(m_model_parameters.num_x_t,1));
 
-    //Loop over shooting nodes for calculating dynamics and cost function
+        //Loop over shooting nodes for calculating dynamics and cost function
         for(int k=0; k<num_shooting_nodes_t; ++k){
-        //Defining current state from xi+1 = f(xi,ui)     
+            //Defining current state from xi+1 = f(xi,ui)     
             casadi::MX current_state = casadi::MX::sym("current_state", m_model_parameters.num_x_t);
             auto funcOut =\
             F({{"x",X[k]},{"u",U[k]}});
             current_state = funcOut["x_next"];
-    // Save dynamic constraints
+            // Save dynamic constraints
             g.push_back(current_state-X[k+1]);
 
             auto desired_state  = reshape(params_sym(casadi::Slice(0,start_Q)),m_model_parameters.num_x_t,1);
@@ -237,7 +234,7 @@ std::cout<<params_size_sym;
             error = error_func_res["err_out"];
             auto delta_U = U[k] - ((k == 0)? u_init_in : U[k-1]); //conditional operator
         
-//cost function contributions       
+            //Cost function contributions       
             if (std::count(m_cf_params.begin(),m_cf_params.end(),0)||std::count(m_cf_params.begin(),m_cf_params.end(),3)||std::count(m_cf_params.begin(),m_cf_params.end(),4)||std::count(m_cf_params.begin(),m_cf_params.end(),6)){
                 J += mtimes(error.T(),mtimes(Q,error));    // Q
             }
@@ -249,11 +246,13 @@ std::cout<<params_size_sym;
             }  
         }
 
+        // Pushback waypoints
         std::vector<double> params; 
         for(int k = 1; k<m_model_parameters.waypoint_list[i].size(); k++){
             params.push_back(m_model_parameters.waypoint_list[i+1][k]);
-        }  
-//Increasing traj_size based on cost function parameters
+        } 
+
+        //Increasing traj_size based on cost function parameters
         if (std::count(m_cf_params.begin(),m_cf_params.end(),0)||std::count(m_cf_params.begin(),m_cf_params.end(),3)||std::count(m_cf_params.begin(),m_cf_params.end(),4)||std::count(m_cf_params.begin(),m_cf_params.end(),6)){
             for(int i = 0; i<Q_.size(); i++){
                 params.push_back(Q_[i]);    // Q
@@ -261,29 +260,29 @@ std::cout<<params_size_sym;
         }
         if (std::count(m_cf_params.begin(),m_cf_params.end(),1)||std::count(m_cf_params.begin(),m_cf_params.end(),3)||std::count(m_cf_params.begin(),m_cf_params.end(),5)||std::count(m_cf_params.begin(),m_cf_params.end(),6)){
             for(int i = 0; i<R_.size(); i++){
-                params.push_back(R_[i]);    // Q
-            } // R
+                params.push_back(R_[i]);    // R
+            } 
         }
         if (std::count(m_cf_params.begin(),m_cf_params.end(),2)||std::count(m_cf_params.begin(),m_cf_params.end(),4)||std::count(m_cf_params.begin(),m_cf_params.end(),5)||std::count(m_cf_params.begin(),m_cf_params.end(),6)){
             for(int i = 0; i<Rm_.size(); i++){
-                params.push_back(Rm_[i]);    // Q
-            }  // Rm
+                params.push_back(Rm_[i]);   // Rm
+            }  
         }
 
         for(int i = 0; i<u_init.size(); i++){
-                params.push_back(u_init[i]);   // Q
+                params.push_back(u_init[i]);   // U initial
         } 
         
-    //Vertically concatenating dynamic constraints
+        //Vertically concatenating dynamic constraints
         casadi::MX g_vec = casadi::MX::vertcat(g);
-    // NLP formulation
+        // NLP formulation
         casadi::MXDict nlp = {{"x", V}, {"f", J}, {"g", g_vec}, {"p", params_sym}};
-    //Default opts for IPOPT
+        //Default opts for IPOPT
         casadi::Dict opts;
-    //Create an NLP solver and buffers
+        //Create an NLP solver and buffers
         m_solver = casadi::nlpsol("nlpsol", "ipopt", nlp, opts);
    
-    //Adding state and control bounds and initial guesses to problem
+        //Adding state and control bounds and initial guesses to problem
         std::map<std::string, DM> arg, res;
         arg["p"] = params;
         arg["lbx"] = v_min;
@@ -291,13 +290,14 @@ std::cout<<params_size_sym;
         arg["lbg"] = 0;
         arg["ubg"] = 0;
         arg["x0"] = v_init;
-//Solve the problem
+
+        //Solve the problem
         res = m_solver(arg);
 
-// Optimal solution of the NLP
+        // Optimal solution of the NLP
         std::vector<double> V_opt(res.at("x"));
    
-// Data pushback for shooting nodes
+        // Data pushback for shooting nodes
         for(int k = 0; k<num_shooting_nodes_t;k++){
             data_line.clear();
             //states at node
@@ -308,7 +308,6 @@ std::cout<<params_size_sym;
             data.push_back(data_line);   
         }
         
-
         std::vector<double> data_last_timestep= data.back();
         std::vector<double> previous_u;
         for (int i = data_last_timestep.size()-1; i >= (data_last_timestep.size()-m_model_parameters.num_u_t); i--) previous_u.push_back(data_last_timestep[i]);
@@ -317,7 +316,7 @@ std::cout<<params_size_sym;
     
     } // Waypoint list size - Number of IPOPT Iterations
 
-//Data saving         
+    //Data saving         
     std::vector<std::string> header_pos_names = {"EFE ref (deg)", "FPS ref (deg)", "WFE ref (deg)", "WRU ref (deg)"};
     std::vector<std::string> header_vel_names = {"EFE ref (deg/s)", "FPS ref (deg/s)", "WFE ref (deg/s)", "WRU ref (deg/s)"};
     std::vector<std::string> header_fes_names = {"Alpha 0", "Alpha 1", "Alpha 2", "Alpha 3", "Alpha 4", "Alpha 5", "Alpha 6", "Alpha 7"};
@@ -333,9 +332,6 @@ std::cout<<params_size_sym;
             header.push_back(header_fes_names[k]);
         }
     }
-    std::cout<<Q_in<<std::endl;
-    std::cout<<R_in<<std::endl;
-    std::cout<<Rm_in<<std::endl;
     mahi::util::Timestamp ts;
     std::string save_filepath = "C:/Git/fes-exo-traj-opt/deidentified_data/" + m_model_parameters.name_t + "/Trajectories/" + dof_string + "_optimized_trajectory/" + cf_string + "/"+ std::to_string(trial_num) +"_"+ ts.yyyy_mm_dd_hh_mm_ss();
     std::cout << save_filepath << std::endl;
