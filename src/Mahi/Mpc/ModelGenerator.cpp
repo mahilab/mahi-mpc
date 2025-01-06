@@ -204,7 +204,7 @@ void ModelGenerator::create_model(){
 
         // Add objective function contribution on traj error
         J += mtimes(error.T(),mtimes(Q,error));
-        std::cout<<mtimes(error.T(),mtimes(Q,error))<<std::endl;
+        //std::cout<<mtimes(error.T(),mtimes(Q,error))<<std::endl;
         // Add objective function contribution on change of input
         auto delta_U = U[k] - ((k == 0)? u_init_in : U[k-1]); //conditional
         J += mtimes(delta_U.T(),mtimes(R,delta_U));
