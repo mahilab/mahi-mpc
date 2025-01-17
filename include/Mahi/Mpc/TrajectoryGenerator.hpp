@@ -24,11 +24,7 @@ public:
     TrajectoryGenerator(TrajectoryParameters model_parameters, casadi::SX x, casadi::SX x_dot, casadi::SX u, std::vector<int> cf_params, int trial_num);
     ~TrajectoryGenerator();
     void create_trajectory();
-    // void generate_c_code();
-   
-    // void compile_model();
-    // void save_param_file();
-
+    bool areEqual(double a, double b);
 };
 
 } // namespace mpc
