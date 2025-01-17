@@ -19,10 +19,10 @@ project(mahi_mpc VERSION 0.1.0 LANGUAGES CXX)
 
 # Options
 
-option(WITH_MAHI_MPC "Turn ON to build example executable(s)" OFF)
+option(WITH_MAHI_MPC "Turn ON to build example executable(s)" ON)
 
 if (CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
-option(MAHI_MPC_EXAMPLES "Turn ON to build example executable(s)" OFF)
+option(MAHI_MPC_EXAMPLES "Turn ON to build example executable(s)" ON)
 else()
 option(MAHI_MPC_EXAMPLES "Turn ON to build example executable(s)" OFF)
 endif()
