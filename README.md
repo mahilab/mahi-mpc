@@ -24,3 +24,11 @@ If you need to know how to add something to your path in Windows, you can hit th
 
 ## VSC 2019
 The installation executable is located in misc folder. 2019 is necessary for current compatability between cmake and casadi as of 12/2024.
+
+## Errors
+There is a compatability error in visual studio versions that are not 19 with casadi.
+There is also an error between the cmake tools/ c/c++
+  c/c++: version 1.21.6 seems to work fine
+  cmake tools: 1.19.52
+  
+  
