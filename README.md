@@ -21,3 +21,6 @@ C:/msys64/mingw64/bin
 ```
 
 If you need to know how to add something to your path in Windows, you can hit the windows key, search `path`, click on `Edit the system environment variables`, click on Environment Variables at the bottom, double click path (either under user variables or system variables). Then click `New` and enter the path you want to add.
+
+## VSC 2019
+The installation executable is located in misc folder. 2019 is necessary for current compatability between cmake and casadi as of 12/2024.
