@@ -18,7 +18,7 @@ struct ModelParameters{
     mahi::util::Time step_size; // step size for MPC calculations 
     int num_x;               // number of states
     int num_u;               // number of control inputs
-    int num_shooting_nodes;  // number of shooting_ndes
+    int num_shooting_nodes;  // number of shooting_nodes
     std::vector<double> x_min;  // minimum of states
     std::vector<double> u_min;  // minimum of control inputs
     std::vector<double> x_max;  // maximum of states
@@ -27,18 +27,17 @@ struct ModelParameters{
     bool is_linear;             // whether or not this is a linearized model
 };
 
+//Struct created for parameters needed to create the trajectories
 struct TrajectoryParameters{
-    TrajectoryParameters(std::string name_t_, int num_x_t_, int num_u_t_, mahi::util::Time step_size_t_, size_t num_shooting_nodes_, std::vector<int> dof, int np, std::array<double, 4Ui64> x_min_, std::array<double, 4Ui64> x_max_, std::vector<std::vector<double>> waypoint_list_, std::vector<bool> muscles_enabled_);
+    TrajectoryParameters(std::string name_t_, int num_x_t_, int num_u_t_, mahi::util::Time step_size_t_, std::vector<int> dof, int np, std::array<double, 4Ui64> x_min_, std::array<double, 4Ui64> x_max_, std::vector<std::vector<double>> waypoint_list_, std::vector<bool> muscles_enabled_);
     TrajectoryParameters() {} ;
 
     std::string name_t;           // name of the model for useful outputs
-    mahi::util::Time timespan_t;  // duration of the MPC time period.
     mahi::util::Time step_size_t; // step size for MPC calculations 
     int num_x_t;               // number of states
     int num_u_t;               // number of control inputs
-    int num_shooting_nodes_t;  // number of shooting_ndes
-    std::vector<int> dof;
-    int np;
+    std::vector<int> dof;      // number of active DOF  
+    int np;                    //
     std::array<double, 4Ui64> x_min;
     std::array<double, 4Ui64> x_max;
     std::vector<std::vector<double>> waypoint_list;

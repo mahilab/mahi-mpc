@@ -312,7 +312,7 @@ void TrajectoryGenerator::create_trajectory(){
 
     // Data pushback for shooting nodes
     if(solved){
-        for(int k = 0; k<num_shooting_nodes_t;k++){
+        for(int k = 0; k <= num_shooting_nodes_t;k++){
             data_line.clear();
             //states at node
             data_line.push_back(m_model_parameters.step_size_t.as_seconds()*k);
